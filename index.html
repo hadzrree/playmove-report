@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlayMove — Initial Screening Report Generator (V1 Mockup)</title>
+<style>
+:root{
+  --navy:#252A64; --yellow:#FDC839; --coral:#F16057; --pink:#F287B0; --teal:#00AD9A;
+  --g:#92D050; --o:#ED7D31; --r:#FF0000;
+  --bg:#F6F7FB; --card:#FFFFFF; --line:#E3E6F0; --txt:#23264A; --muted:#7A7FA0;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--txt); font-size:15px;}
+header.app{background:var(--navy); color:#fff; padding:10px 24px; display:flex; align-items:center; gap:14px;}
+header.app .mark{background:#fff; border-radius:8px; padding:2px 6px;}
+header.app .mark img{height:34px; display:block;}
+header.app h1{font-size:16px; font-weight:600;}
+header.app .tag{margin-left:auto; font-size:12px; background:var(--yellow); color:var(--navy); font-weight:700; padding:3px 10px; border-radius:20px;}
+/* stepper */
+nav.stepper{display:flex; gap:4px; padding:10px 24px; background:#fff; border-bottom:1px solid var(--line); overflow-x:auto; position:sticky; top:0; z-index:50;}
+nav.stepper button{flex:1; min-width:86px; border:0; background:transparent; cursor:pointer; padding:6px 4px; border-radius:8px; font-size:11.5px; color:var(--muted); border-bottom:3px solid var(--line);}
+nav.stepper button b{display:block; font-size:13px; margin-bottom:2px;}
+nav.stepper button.active{color:var(--navy); border-bottom-color:var(--yellow); background:#FDF7E7;}
+nav.stepper button.done{color:var(--teal); border-bottom-color:var(--teal);}
+.childbar{padding:6px 24px; background:#EEF0FA; font-size:13px; color:var(--navy); font-weight:600; display:none;}
+main{max-width:980px; margin:0 auto; padding:22px 24px 90px;}
+.screen{display:none;} .screen.active{display:block;}
+h2.title{font-size:21px; color:var(--navy); margin-bottom:2px;}
+p.sub{color:var(--muted); margin-bottom:18px; font-size:13.5px;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:14px;}
+.card h3{font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--navy); margin-bottom:12px;}
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:12px 18px;}
+.field{display:flex; flex-direction:column; gap:5px;}
+.field label{font-size:12.5px; font-weight:600; color:var(--navy);}
+.field input,.field select,.field textarea{border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:14px; font-family:inherit; background:#fff;}
+.field input:focus,.field select:focus{outline:2px solid var(--yellow);}
+.readonly{background:#F1F3FA !important; color:var(--navy); font-weight:700;}
+.hint{font-size:11.5px; color:var(--muted);}
+/* chips */
+.chips{display:flex; flex-wrap:wrap; gap:8px;}
+.chip{border:1.5px solid var(--line); background:#fff; border-radius:20px; padding:6px 14px; font-size:13px; cursor:pointer; user-select:none;}
+.chip.on{background:var(--navy); color:#fff; border-color:var(--navy);}
+/* segmented */
+.seg{display:inline-flex; border:1.5px solid var(--line); border-radius:9px; overflow:hidden;}
+.seg button{border:0; background:#fff; padding:7px 12px; font-size:12.5px; cursor:pointer; border-right:1px solid var(--line); color:var(--muted); white-space:nowrap;}
+.seg button:last-child{border-right:0;}
+.seg button.on{background:var(--navy); color:#fff;}
+.seg.small button{padding:5px 9px; font-size:12px;}
+.rowline{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px dashed var(--line); flex-wrap:wrap;}
+.rowline:last-child{border-bottom:0;}
+.rowline .lbl{font-size:13.5px; max-width:46%;}
+/* domains */
+details.domain{border:1px solid var(--line); border-radius:10px; margin-bottom:10px; background:#fff;}
+details.domain summary{cursor:pointer; padding:12px 16px; font-weight:600; color:var(--navy); font-size:14px; list-style:none; display:flex; align-items:center; gap:10px;}
+details.domain summary::after{content:"▾"; margin-left:auto; color:var(--muted);}
+details.domain .body{padding:4px 16px 14px;}
+.dot{width:9px; height:9px; border-radius:50%; background:var(--line);}
+/* spm */
+table.spm{border-collapse:collapse; width:100%; font-size:14px;}
+table.spm th,table.spm td{border:1px solid #9aa; padding:6px 10px; text-align:left;}
+table.spm th{background:#EEF0FA; color:var(--navy);}
+table.spm input{width:70px; border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:14px;}
+td.interp{font-weight:600; min-width:170px;}
+.toggle{display:inline-flex; border:2px solid var(--navy); border-radius:10px; overflow:hidden; margin-bottom:14px;}
+.toggle button{border:0; background:#fff; color:var(--navy); font-weight:700; padding:8px 18px; cursor:pointer; font-size:13.5px;}
+.toggle button.on{background:var(--navy); color:#fff;}
+.warn{background:#FFF4E5; border:1px solid var(--o); color:#8A4B00; border-radius:9px; padding:9px 12px; font-size:13px; margin:8px 0;}
+.flag{background:#FDECEF; border:1px solid var(--coral); border-radius:10px; padding:12px 14px; margin-bottom:10px; font-size:13.5px;}
+.flag b{color:#B03A2E;}
+.ok{background:#E6F7F3; border:1px solid var(--teal); border-radius:10px; padding:12px 14px; margin-bottom:10px; font-size:13.5px;}
+.qcard{background:#FDF7E7; border:1px solid var(--yellow); border-radius:10px; padding:12px 14px; margin-bottom:10px; font-size:13.5px;}
+.qcard .src{font-size:11px; font-weight:800; letter-spacing:.05em; color:var(--navy); text-transform:uppercase;}
+.btn{border:0; border-radius:9px; padding:10px 20px; font-size:14px; font-weight:700; cursor:pointer;}
+.btn.primary{background:var(--navy); color:#fff;}
+.btn.accent{background:var(--yellow); color:var(--navy);}
+.btn.ghost{background:#fff; color:var(--navy); border:1.5px solid var(--navy);}
+.btn:disabled{opacity:.4; cursor:not-allowed;}
+.navbtns{display:flex; justify-content:space-between; margin-top:18px;}
+.secard{border:1px solid var(--line); border-radius:10px; margin-bottom:12px; background:#fff;}
+.secard .hd{display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); background:#F8F9FD; border-radius:10px 10px 0 0;}
+.secard .hd b{color:var(--navy); font-size:13.5px;}
+.secard .hd .mini{margin-left:auto; display:flex; gap:8px; align-items:center; font-size:12px; color:var(--muted);}
+.secard textarea{width:100%; border:0; padding:12px 14px; font-size:13.5px; line-height:1.55; min-height:88px; font-family:inherit; resize:vertical; border-radius:0 0 10px 10px;}
+.prompthdr{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+/* ---------- report preview (template) ---------- */
+.reportwrap{background:#9aa0b8; padding:26px 0; border-radius:12px;}
+.page{width:794px; min-height:1000px; margin:0 auto 20px; background:#fff; padding:34px 46px; box-shadow:0 4px 18px rgba(0,0,0,.25); outline:1.5px solid #444; outline-offset:-10px; font-family:Calibri,'Segoe UI',sans-serif; font-size:14.5px; line-height:1.5; color:#111;}
+.cpybar{background:var(--navy); color:#fff; text-align:center; font-size:12.5px; padding:6px 0; margin:0 6px;}
+.rlogo{display:block; margin:14px auto 6px; height:64px;}
+.rtitle{text-align:center; font-weight:700; font-size:16px; border-bottom:2.5px solid #111; padding-bottom:6px; margin:8px 30px 18px;}
+.rhead p{margin:2px 0; font-weight:700;}
+.rhead span{font-weight:700;}
+.rpt h4{font-size:14.5px; margin:18px 0 8px; font-weight:700;}
+.rpt p{margin:0 0 10px;}
+.rpt ul{margin:0 0 10px 26px;}
+.rpt li{margin-bottom:4px;}
+.rpt table{border-collapse:collapse; margin:8px auto; font-size:14px;}
+.rpt table caption{font-weight:700; margin-bottom:6px;}
+.rpt th,.rpt td{border:1.5px solid #333; padding:4px 12px;}
+.rpt .disc{font-style:italic; font-weight:600; font-size:13px; margin-top:20px;}
+.sigrow{display:flex; justify-content:space-between; margin-top:26px; font-weight:700;}
+.sigline{border-bottom:1.5px solid #111; width:260px; height:44px; margin-top:14px;}
+.signoff{display:flex; gap:10px; align-items:flex-start; background:#fff; border:1px solid var(--line); padding:14px 16px; border-radius:10px; margin:14px 0;}
+footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line); padding:8px 24px; font-size:12px; color:var(--muted); display:flex; justify-content:space-between; z-index:60;}
+@media print{
+  *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important;}
+  body *{visibility:hidden;}
+  #printArea, #printArea *{visibility:visible;}
+  #printArea{position:absolute; top:0; left:0; width:100%;}
+  .page{box-shadow:none; margin:0; width:100%; outline-offset:-10px;}
+  .reportwrap{background:#fff; padding:0;}
+}
+@media (max-width:640px){
+  .grid{grid-template-columns:1fr;}
+  .rowline .lbl{max-width:100%;}
+  .rowline{gap:8px;}
+  nav.stepper button{min-width:62px;}
+  .seg button, .chip{padding:9px 12px;}
+  .page{width:100%; padding:20px 16px;}
+}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <span class="mark"><img id="hdrlogo" alt="PlayMove"></span>
+  <h1>Initial Screening Report Generator</h1>
+  <span class="tag">V1 MOCKUP — for workflow review only</span>
+</header>
+
+<nav class="stepper" id="stepper"></nav>
+<div class="childbar" id="childbar"></div>
+
+<main>
+
+<!-- ========== SCREEN 1 ========== -->
+<section class="screen" id="s1">
+  <h2 class="title">1 · Patient Information</h2>
+  <p class="sub">Under 60 seconds. Only name, DOB, sex and informant are required.</p>
+  <div class="card"><h3>A — Child details</h3>
+    <div class="grid">
+      <div class="field"><label>IC / MyKid number <span class="hint">(optional — auto-fills DOB &amp; sex)</span></label><input id="ic" placeholder="e.g. 210322-01-1234" maxlength="14"></div>
+      <div class="field"><label>Full name *</label><input id="fullname" placeholder="Child's full name"></div>
+      <div class="field"><label>Preferred name</label><input id="prefname" placeholder="Auto-suggested from first name"></div>
+      <div class="field"><label>Date of birth *</label><input type="date" id="dob"></div>
+      <div class="field"><label>Chronological age</label><input class="readonly" id="age" readonly placeholder="—"></div>
+      <div class="field"><label>Sex *</label>
+        <div class="seg" id="sexseg"><button data-v="Male">Male</button><button data-v="Female">Female</button></div></div>
+      <div class="field" style="grid-column:1/-1"><label>Language(s) at home</label>
+        <div class="chips" id="langs"></div></div>
+    </div>
+    <div class="warn" id="agewarn" style="display:none"></div>
+  </div>
+  <div class="card"><h3>B — Assessment &amp; therapist details</h3>
+    <div class="grid">
+      <div class="field"><label>Date of screening</label><input type="date" id="doa"></div>
+      <div class="field"><label>Therapist name *</label><input id="tname" placeholder="Full name as registered" autocomplete="name"></div>
+      <div class="field"><label>MAHPC registration number *</label><input id="tmahpc" placeholder="e.g. MAHPC(OT)00712"></div>
+      <div class="field"><label>Contact number *</label><input id="tphone" inputmode="tel" placeholder="+60 19-705 8258"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">Your details are remembered on this device only, so you enter them once. Child data is never stored.</p>
+  </div>
+  <div class="card"><h3>C — Referral &amp; background</h3>
+    <div class="grid">
+      <div class="field"><label>Referral source</label><select id="refsrc"><option></option><option>Parent self-referral</option><option>Paediatrician</option><option>Child psychiatrist</option><option>Teacher / kindergarten</option><option>Other therapist</option><option>Other</option></select></div>
+      <div class="field"><label>Diagnostic status</label>
+        <div class="seg" id="dxseg"><button data-v="No diagnosis">No diagnosis</button><button data-v="Under assessment">Under assessment</button><button data-v="Diagnosed">Diagnosed</button></div></div>
+      <div class="field" id="dxrow" style="grid-column:1/-1; display:none"><label>Diagnosis (as given by referrer)</label>
+        <div class="chips" id="dxchips"></div><input id="dxother" placeholder="Details / other, e.g. Autism Spectrum Condition (OKU Card Holder)"></div>
+      <div class="field"><label>Schooling</label><select id="school"><option></option><option>Not yet schooling</option><option>Taska</option><option>Tadika</option><option>Primary school</option></select></div>
+      <div class="field"><label>School name <span class="hint">(optional)</span></label><input id="schoolname"></div>
+    </div>
+  </div>
+  <div class="card"><h3>D — Caregiver &amp; contact</h3>
+    <div class="grid">
+      <div class="field"><label>Informant present today *</label><select id="informant"><option></option><option>Mother</option><option>Father</option><option>Both parents</option><option>Grandparent</option><option>Other</option></select></div>
+      <div class="field"><label>Caregiver name</label><input id="cgname"></div>
+      <div class="field"><label>Contact number</label><input id="cgphone" inputmode="numeric"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== SCREEN 2 ========== -->
+<section class="screen" id="s2">
+  <h2 class="title">2 · Occupational Profile</h2>
+  <p class="sub">Participation, concerns and family priorities — no paragraphs to type.</p>
+  <div class="card"><h3>A — Participation in daily occupations</h3><div id="partrows"></div></div>
+  <div class="card"><h3>B — Family concerns</h3>
+    <div class="chips" id="concerns"></div>
+    <div class="grid" style="margin-top:12px">
+      <div class="field"><label>In the parent's words <span class="hint">(one line, optional)</span></label><input id="concerntext"></div>
+      <div class="field"><label>Duration of concern</label><select id="condur"><option></option><option>&lt; 6 months</option><option>6–12 months</option><option>1–2 years</option><option>Since infancy</option></select></div>
+    </div>
+  </div>
+  <div class="card"><h3>C — Family hopes for therapy</h3><div class="chips" id="hopes"></div></div>
+</section>
+
+<!-- ========== SCREEN 3 ========== -->
+<section class="screen" id="s3">
+  <h2 class="title">3 · Parent Interview</h2>
+  <p class="sub">Every domain is skippable — skipped domains are simply left out of the report.</p>
+  <div id="domains"></div>
+</section>
+
+<!-- ========== SCREEN 4 ========== -->
+<section class="screen" id="s4">
+  <h2 class="title">4 · General Observation</h2>
+  <p class="sub">How the child presented in the session. All selections; typing optional.</p>
+  <div class="card" id="genobs"></div>
+  <div class="card"><div class="field"><label>Session note <span class="hint">(one line, optional)</span></label><input id="gennote"></div></div>
+</section>
+
+<!-- ========== SCREEN 5 ========== -->
+<section class="screen" id="s5">
+  <h2 class="title">5 · ASI Observation</h2>
+  <p class="sub">Rate each observed behaviour. “Not observed” items are excluded from the report.</p>
+  <div id="asigroups"></div>
+</section>
+
+<!-- ========== SCREEN 6 ========== -->
+<section class="screen" id="s6">
+  <h2 class="title">6 · Sensory Processing Measure</h2>
+  <p class="sub">Enter T-scores from official WPS scoring. Labels &amp; colours are automatic — never manual.</p>
+  <div class="toggle" id="spmver">
+    <button data-v="SPM" class="on">SPM — Home Form</button><button data-v="SPM2">SPM-2 — Home Form</button>
+  </div>
+  <div class="card">
+    <table class="spm"><thead><tr><th>Area</th><th>T-Score (40–80)</th><th>Interpretation</th></tr></thead>
+    <tbody id="spmbody"></tbody></table>
+    <p class="hint" style="margin-top:8px">Blank = not administered. 40–59 Typical · 60–69 Some Problems / Moderate · 70–80 Definite Dysfunction / Severe.</p>
+  </div>
+</section>
+
+<!-- ========== SCREEN 7 ========== -->
+<section class="screen" id="s7">
+  <h2 class="title">7 · Child's Strengths</h2>
+  <p class="sub">Every PlayMove report is strengths-based — pick at least one.</p>
+  <div class="card"><h3>Strengths</h3><div class="chips" id="strengths"></div></div>
+  <div class="card"><h3>Interests <span class="hint">(feed the recommendations as motivators)</span></h3><div class="chips" id="interests"></div></div>
+  <div class="card"><div class="field"><label>How strengths appeared in session <span class="hint">(one line, optional)</span></label><input id="strnote"></div></div>
+</section>
+
+<!-- ========== SCREEN 8 ========== -->
+<section class="screen" id="s8">
+  <h2 class="title">8 · AI Review</h2>
+  <p class="sub">A quality gate before writing. Advisory only — nothing here blocks you.</p>
+  <div class="card"><h3>Completeness</h3><div id="completeness"></div></div>
+  <div class="card"><h3>Consistency flags</h3><div id="flags"></div></div>
+  <div class="card"><h3>Follow-up questions (max 2)</h3><div id="fups"></div></div>
+</section>
+
+<!-- ========== SCREEN 9 ========== -->
+<section class="screen" id="s9">
+  <h2 class="title">9 · Generate Report</h2>
+  <p class="sub">Copy the prompt → paste it into your preferred AI assistant (e.g. ChatGPT, Claude, Gemini, Microsoft Copilot or others) → paste the reply back. The prompt uses “[Child]” — no name, IC or DOB ever leaves this app.</p>
+  <div class="card">
+    <div class="prompthdr">
+      <button class="btn primary" onclick="copyPrompt()">📋 Copy Prompt</button>
+      <button class="btn ghost" onclick="alert('The full prompt would open here for you to inspect — proving no identifiable data is included.')">View prompt</button>
+      <button class="btn accent" onclick="loadSample()">Load sample narrative (mockup demo)</button>
+    </div>
+    <p class="hint" style="margin-top:8px">In the real app you would paste the AI assistant's reply below; it is parsed into the sections and “[Child]” becomes the preferred name locally. You may further refine any section using your preferred AI assistant.</p>
+    <textarea id="pastebox" style="width:100%; margin-top:10px; border:1.5px dashed var(--line); border-radius:9px; padding:10px; min-height:64px; font-family:inherit;" placeholder="Paste the AI assistant's reply here…"></textarea>
+  </div>
+  <div class="warn">AI text is a draft. All clinical interpretation remains yours — review every section before continuing.</div>
+  <div id="sections"></div>
+</section>
+
+<!-- ========== SCREEN 10 ========== -->
+<section class="screen" id="s10">
+  <h2 class="title">10 · Preview PDF</h2>
+  <p class="sub">Exact template preview. Tick the sign-off to enable export.</p>
+  <div class="signoff">
+    <input type="checkbox" id="signoff" style="width:18px;height:18px;margin-top:2px" onchange="document.getElementById('exportbtn').disabled=!this.checked">
+    <label for="signoff" style="font-size:13.5px">I have reviewed this report and it reflects my clinical findings.</label>
+  </div>
+  <div style="display:flex; gap:10px; margin-bottom:6px">
+    <button class="btn primary" id="exportbtn" disabled onclick="window.print()">⬇ Export PDF (print)</button>
+    <button class="btn ghost" onclick="buildReport()">↻ Refresh preview</button>
+  </div>
+  <p class="hint" style="margin-bottom:14px">If the SPM table colours are missing in the exported PDF, tick <b>“Background graphics”</b> in the print dialog (Chrome/Edge: More settings → Options).</p>
+  <div class="reportwrap"><div id="printArea"><div class="page" id="reportpage"></div></div></div>
+</section>
+
+</main>
+
+<div class="navbtns" style="max-width:980px; margin:-70px auto 90px; padding:0 24px" id="navrow">
+  <button class="btn ghost" id="backbtn" onclick="go(cur-1)">← Back</button>
+  <button class="btn primary" id="nextbtn" onclick="go(cur+1)">Next →</button>
+</div>
+
+<footer class="note"><span>Session-only data — nothing is saved. The exported PDF is the record.</span><span>PlayMove Therapy for Children · v1.0.0 (M0 baseline)</span></footer>
+
+<script>
+/* ================= DATA (data-driven per Development Rules §3.4) ================= */
+const LOGO = "data:image/jpeg;base64,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";
+const STEPS = ["Patient Info","Occ. Profile","Parent Interview","General Obs","ASI Obs","SPM","Strengths","AI Review","Generate","Preview PDF"];
+const LANGS = ["Bahasa Melayu","English","Mandarin","Tamil","Other"];
+const DX = ["ASD","ADHD","GDD","Speech & language delay","Learning difficulty"];
+const PART = ["Feeding / mealtimes","Dressing","Toileting","Bathing / hygiene","Sleep and rest","Play","Preschool / school participation","Social participation with peers","Community outings"];
+const PARTOPTS = ["Independent","Needs some help","Needs full help","N/A for age"];
+const CONCERNS = ["Speech & communication","Behaviour & tantrums","Attention & focus","Social interaction","Motor skills","Sensory behaviours","Feeding","Sleep","School readiness","Toileting"];
+const HOPES = ["Communicate better","Play with other children","Calmer behaviour","Independence in self-care","Ready for school","Better focus"];
+const FREQ = ["Never","Rarely","Sometimes","Often","Always"];
+const NEONATAL = ["NICU admission","Jaundice","Respiratory distress","Infection","Feeding difficulty","Birth trauma"];
+const DOMAINS = [
+ {t:"Birth & Early History", opts:["Yes","No","Don't know"], items:["Was the pregnancy uncomplicated?","Was the baby born at full term (37 weeks or later)?","Did the baby have any problems after birth?"]},
+ {t:"Developmental Milestones", items:["Walked independently (by ~18 m)","First words (by ~16 m)","Two-word phrases (by ~24 m)","Toilet trained day (by ~3½ y)"], opts:["On time","Delayed","Not yet","Unsure"]},
+ {t:"Daily Routines", items:["Accepts a variety of food textures","Mealtime is a struggle","Falls asleep within ~30 min","Tolerates tooth-brushing / hair-cutting"]},
+ {t:"Sensory Behaviours", items:["Upset by messy play / clothing textures","Seeks intense movement (spin, jump, crash)","Covers ears at everyday sounds","Uses too much force","Overwhelmed in busy places (mall, kenduri)"]},
+ {t:"Play & Social", items:["Prefers to play alone","Engages in pretend play","Play is repetitive / lines up toys","Shares enjoyment (shows, points)"]},
+ {t:"Behaviour & Regulation", items:["Intense tantrums, hard to settle","Copes with changes in routine","Safety concern (runs off, climbs)"]}
+];
+const GENOBS = [
+ ["Separation from caregiver",["Separated easily","Reluctant, settled","Distressed"]],
+ ["Eye contact",["Consistent","Fleeting","Rare","Avoided"]],
+ ["Response to name",["Consistent","Inconsistent","No response"]],
+ ["Attention to activity",["> 10 min","5–10 min","2–5 min","< 2 min"]],
+ ["Activity level",["Age-appropriate","Overactive","Underactive"]],
+ ["Play stage",["Solitary","Parallel","Interactive"]],
+ ["Transitions",["Smooth","Needed support","Distressed"]],
+ ["Following instructions",["2-step","1-step","Gesture prompt","Did not follow"]]
+];
+const ASI = [
+ {t:"Posture & Muscle Tone", items:[
+   "Frequently slumps, leans, or props head on hand during table-top tasks",
+   "Habitually sits in a W-position on the floor",
+   "Becomes tired quickly during active play compared with peers",
+   "Difficulty holding positions against gravity (e.g., keeping arms raised in play)",
+   "Appears floppy or loose-jointed when climbing or being handled"]},
+ {t:"Bilateral Integration & Midline", items:[
+   "Uses both hands together — one stabilises while the other works (e.g., holds paper while drawing)",
+   "Reaches across the midline spontaneously instead of switching hands",
+   "Hand preference emerging or established as expected for age",
+   "Coordinates both sides of the body in gross-motor play (climbing, catching, star jumps)",
+   "Performs sequenced two-sided actions (marching, jumping jacks) with age-expected rhythm"]},
+ {t:"Praxis (Motor Planning)", items:[
+   "Generates own play ideas with new or unfamiliar equipment (ideation)",
+   "Imitates simple body positions and actions on request",
+   "Plans and sequences multi-step motor tasks (e.g., obstacle course) with age-expected support",
+   "Learns a new motor task within a reasonable number of attempts",
+   "Moves between positions (floor → standing → climbing) smoothly, without excessive effort"]},
+ {t:"Vestibular Responses", items:[
+   "Seeks intense movement (spinning, fast swinging, crashing) noticeably more than peers",
+   "Shows fear or avoidance when feet leave the ground (possible gravitational insecurity)",
+   "Recovers balance when gently displaced during play (equilibrium reactions)",
+   "Responds to spinning with expected dizziness — neither excessive distress nor unusual absence",
+   "Maintains balance on unstable surfaces (foam, swing, balance beam) at an age-expected level"]},
+ {t:"Tactile Responses", items:[
+   "Withdraws, rubs skin, or reacts negatively to unexpected or light touch",
+   "Avoids messy media (paint, playdough, sand) or touches only with fingertips",
+   "Constantly seeks touch input (runs hands along walls, touches objects and people)",
+   "Locates where they were touched without looking (tactile discrimination)",
+   "Mouths or chews non-food objects during the session"]},
+ {t:"Visual–Ocular", items:[
+   "Tracks a moving object smoothly without excessive whole-head movement",
+   "Maintains visual attention on a task without being pulled away by every visual event",
+   "Inspects objects unusually close to the eyes or from unusual angles",
+   "Shifts gaze between near and far targets (therapist's face → toy) without difficulty",
+   "Uses vision to guide hand movements accurately (reaching, stacking, posting)"]},
+ {t:"Self-Regulation in Session", items:[
+   "Arousal level matches activity demands (calm-alert at the table, energised in gross-motor play)",
+   "Escalates quickly and has difficulty settling without adult support",
+   "Uses self-calming strategies (seeks a quiet corner, deep pressure, favourite object)",
+   "Requires sensory breaks to stay engaged in structured tasks",
+   "Recovers from frustration or excitement within an age-expected time"]}
+];
+const ASIOPTS = ["Typical","Mild concern","Significant concern","Not assessed"];
+const ASICOLORS = {"Typical":["#1E8E3E","#fff"],"Mild concern":["#E8A100","#000"],"Significant concern":["#C62828","#fff"],"Not assessed":["#8A8FA8","#fff"]};
+const STRENGTHS = ["Affectionate & warm","Curious & explorative","Good visual learner","Strong memory","Enjoys music & rhythm","Physically active & agile","Persistent — tries again","Playful humour","Follows routines well","Creative in play"];
+const INTERESTS = ["Vehicles","Animals","Music & songs","Water play","Books & pictures","Blocks & construction","Outdoor play","Screen & digital"];
+const SPM_SCALES = ["Social Participation","Vision","Hearing","Touch","Body Awareness","Balance & Motion","Planning & Ideas","Total Score"];
+const SPM2_SCALES = ["Social Participation","Vision","Hearing","Touch","Taste & Smell","Body Awareness","Balance & Motion","Planning & Ideas","Sensory Total"];
+const RSECTIONS = ["Occupational Profile of a Child","Parental Concern","General Observation","Sensory Integration and Postural Praxis Observations (ASI Framework)","Interpretation","Child's Strengths","Summary","Recommendation"];
+
+/* ================= STATE ================= */
+const S = {ver:"SPM", spm:{}, secs:{}, chips:{}, seg:{}, other:{}};
+let cur = 1;
+
+/* ================= HELPERS ================= */
+const $ = id => document.getElementById(id);
+function chips(elId, list, withOther=false){
+  const el = $(elId); S.chips[elId] = S.chips[elId]||new Set();
+  list.forEach(v=>{
+    const c=document.createElement("span"); c.className="chip"; c.textContent=v;
+    c.onclick=()=>{ c.classList.toggle("on"); c.classList.contains("on")?S.chips[elId].add(v):S.chips[elId].delete(v); };
+    el.appendChild(c);
+  });
+  if(withOther){
+    const c=document.createElement("span"); c.className="chip"; c.textContent="Others…";
+    const inp=document.createElement("input");
+    inp.placeholder="Type it here"; inp.style.cssText="display:none; border:1.5px solid var(--line); border-radius:20px; padding:6px 14px; font-size:13px; font-family:inherit;";
+    inp.addEventListener("input",e=>S.other[elId]=e.target.value);
+    c.onclick=()=>{ c.classList.toggle("on");
+      inp.style.display=c.classList.contains("on")?"inline-block":"none";
+      if(!c.classList.contains("on")){inp.value=""; S.other[elId]="";} else inp.focus(); };
+    el.appendChild(c); el.appendChild(inp);
+  }
+}
+function sel(elId){ const a=[...(S.chips[elId]||[])]; if(S.other[elId]) a.push(S.other[elId]); return a; }
+function seg(el, key){
+  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    el.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); S.seg[key]=b.dataset.v||b.textContent;
+    if(key==="dx") $("dxrow").style.display = (S.seg.dx==="Diagnosed")?"flex":"none";
+  });
+}
+function segRow(parent,label,opts,key,small=true,colors=null,onSelect=null){
+  const row=document.createElement("div"); row.className="rowline";
+  row.innerHTML=`<span class="lbl">${label}</span>`;
+  const sg=document.createElement("div"); sg.className="seg"+(small?" small":"");
+  sg.setAttribute("role","radiogroup"); sg.setAttribute("aria-label",label);
+  opts.forEach(o=>{const b=document.createElement("button"); b.textContent=o;
+    b.setAttribute("role","radio"); b.setAttribute("aria-checked","false");
+    b.onclick=()=>{
+      sg.querySelectorAll("button").forEach(x=>{x.classList.remove("on"); x.style.background=""; x.style.color=""; x.setAttribute("aria-checked","false");});
+      b.classList.add("on"); b.setAttribute("aria-checked","true"); S.seg[key]=o;
+      if(colors&&colors[o]){b.style.background=colors[o][0]; b.style.color=colors[o][1];}
+      const dot=row.closest("details.domain")?.querySelector(".dot"); if(dot) dot.style.background="var(--teal)";
+      if(onSelect) onSelect(o);
+    };
+    sg.appendChild(b);});
+  row.appendChild(sg); parent.appendChild(row); return row;
+}
+
+/* ================= BUILD UI ================= */
+$("hdrlogo").src = LOGO;
+STEPS.forEach((t,i)=>{
+  const b=document.createElement("button"); b.innerHTML=`<b>${i+1}</b>${t}`;
+  b.onclick=()=>go(i+1); $("stepper").appendChild(b);
+});
+chips("langs",LANGS); chips("dxchips",DX); chips("concerns",CONCERNS,true); chips("hopes",HOPES,true);
+chips("strengths",STRENGTHS,true); chips("interests",INTERESTS,true);
+seg($("sexseg"),"sex"); seg($("dxseg"),"dx");
+PART.forEach(p=>segRow($("partrows"),p,PARTOPTS,"part:"+p));
+DOMAINS.forEach(d=>{
+  const det=document.createElement("details"); det.className="domain";
+  det.innerHTML=`<summary><span class="dot"></span>${d.t}</summary><div class="body"></div>`;
+  const body=det.querySelector(".body");
+  d.items.forEach(it=>{
+    if(it==="Did the baby have any problems after birth?"){
+      segRow(body,it,d.opts||FREQ,"iv:"+it,true,null,v=>{$("neonatal").style.display=(v==="Yes")?"block":"none";});
+      const nd=document.createElement("div"); nd.id="neonatal"; nd.style.cssText="display:none; padding:8px 0 4px";
+      nd.innerHTML=`<div class="hint" style="margin-bottom:6px">Select all that apply:</div><div class="chips" id="neochips"></div>`;
+      body.appendChild(nd);
+    } else segRow(body,it,d.opts||FREQ,"iv:"+it);
+  });
+  $("domains").appendChild(det);
+});
+chips("neochips",NEONATAL,true);
+GENOBS.forEach(([l,o])=>segRow($("genobs"),l,o,"gen:"+l));
+ASI.forEach(g=>{
+  const c=document.createElement("div"); c.className="card"; c.innerHTML=`<h3>${g.t}</h3>`;
+  g.items.forEach(it=>segRow(c,it,ASIOPTS,"asi:"+it,true,ASICOLORS));
+  $("asigroups").appendChild(c);
+});
+/* remember therapist details on this device (therapist data only — never child data) */
+["tname","tmahpc","tphone"].forEach(id=>{
+  try{ $(id).value = localStorage.getItem("pm_"+id)||""; }catch(e){}
+  $(id).addEventListener("input",e=>{ try{ localStorage.setItem("pm_"+id, e.target.value); }catch(e){} });
+});
+
+/* ================= SCREEN 1 LOGIC ================= */
+$("doa").valueAsDate = new Date();
+$("fullname").addEventListener("input",e=>{ if(!$("prefname").value) $("prefname").placeholder=e.target.value.split(" ")[0]||""; });
+$("ic").addEventListener("change",e=>{
+  const m=e.target.value.replace(/\D/g,"");
+  if(m.length>=12){ let yy=+m.slice(0,2), mo=m.slice(2,4), dd=m.slice(4,6);
+    const yr=(yy>new Date().getFullYear()%100?1900:2000)+yy;
+    $("dob").value=`${yr}-${mo}-${dd}`; calcAge();
+    const sex=(+m[11])%2===1?"Male":"Female";
+    $("sexseg").querySelectorAll("button").forEach(b=>{b.classList.toggle("on",b.dataset.v===sex);}); S.seg.sex=sex;
+  } else if(m.length>0){ alert("IC number looks incomplete — DOB and sex not auto-filled. The field stays optional."); }
+});
+$("dob").addEventListener("change",calcAge);
+function calcAge(){
+  const d=new Date($("dob").value); if(isNaN(d)) return;
+  const now=new Date($("doa").value||Date.now());
+  let y=now.getFullYear()-d.getFullYear(), m=now.getMonth()-d.getMonth();
+  if(now.getDate()<d.getDate()) m--; if(m<0){y--;m+=12;}
+  $("age").value=`${y} years ${m} months`;
+  const months=y*12+m, w=$("agewarn");
+  if(months<4){w.style.display="block"; w.textContent="⚠ Child is below the SPM age range (from 4 months). Screening can proceed; SPM scores cannot be interpreted.";}
+  else w.style.display="none";
+}
+
+/* ================= SPM ================= */
+$("spmver").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  $("spmver").querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+  const old=S.ver; S.ver=b.dataset.v;
+  if(old!==S.ver && Object.keys(S.spm).length) alert("Version changed — shared scale scores are kept. Please review each score against the correct form.");
+  buildSPM();
+});
+function interp(t){
+  if(t===""||t==null||isNaN(t)) return null;
+  t=+t; if(t<40||t>80||t%1!==0) return {err:true};
+  if(t<=59) return {lbl:"Typical", lbl2:"Typical", bg:"#92D050", fg:"#000"};
+  if(t<=69) return {lbl:"Some Problems", lbl2:"Moderate Difficulties", bg:"#ED7D31", fg:"#000"};
+  return {lbl:"Definite Dysfunction", lbl2:"Severe Difficulties", bg:"#FF0000", fg:"#fff"};
+}
+function buildSPM(){
+  const scales=S.ver==="SPM"?SPM_SCALES:SPM2_SCALES, tb=$("spmbody"); tb.innerHTML="";
+  scales.forEach(sc=>{
+    const tr=document.createElement("tr");
+    const bold=sc.includes("Total")?"font-weight:700":"";
+    tr.innerHTML=`<td style="${bold}">${sc}</td><td><input inputmode="numeric" value="${S.spm[sc]??""}"></td><td class="interp"></td>`;
+    const inp=tr.querySelector("input"), cell=tr.querySelector(".interp");
+    const paint=()=>{ S.spm[sc]=inp.value;
+      const r=interp(inp.value);
+      if(!r){cell.textContent="Not administered"; cell.style.background=""; cell.style.color="#999"; return;}
+      if(r.err){cell.textContent="⚠ integer 40–80 only"; cell.style.background="#FDECEF"; cell.style.color="#B03A2E"; return;}
+      cell.textContent=S.ver==="SPM"?r.lbl:r.lbl2; cell.style.background=r.bg; cell.style.color=r.fg; };
+    inp.addEventListener("input",paint); paint();
+    tb.appendChild(tr);
+  });
+}
+buildSPM();
+
+/* ================= SCREEN 8 (demo logic) ================= */
+function buildReview(){
+  const done=[["1 · Patient Information", $("fullname").value && $("dob").value && S.seg.sex && $("informant").value && $("tname").value && $("tmahpc").value && $("tphone").value],
+    ["2 · Occupational Profile", sel("concerns").length>0],
+    ["3 · Parent Interview", Object.keys(S.seg).some(k=>k.startsWith("iv:"))],
+    ["4 · General Observation", Object.keys(S.seg).some(k=>k.startsWith("gen:"))],
+    ["5 · ASI Observation", Object.keys(S.seg).some(k=>k.startsWith("asi:"))],
+    ["6 · SPM", Object.values(S.spm).some(v=>v!=="")],
+    ["7 · Strengths", sel("strengths").length>0]];
+  $("completeness").innerHTML=done.map(([t,ok])=>`<div class="${ok?"ok":"warn"}" style="margin-bottom:8px">${ok?"✔":"◻"} ${t} — ${ok?"complete":"not filled (will be omitted or needs entry)"}</div>`).join("");
+  const fl=[];
+  const touch=+S.spm["Touch"];
+  if(touch>=70 && S.seg["iv:Upset by messy play / clothing textures"]==="Never")
+    fl.push(`<div class="flag"><b>Report–interview mismatch:</b> SPM Touch is in the red range (T=${touch}) but the interview recorded “Never” for touch-related upset. The report will state both. <br><br><button class="btn ghost" onclick="go(3)">Go to Parent Interview</button> <button class="btn ghost" onclick="this.closest('.flag').outerHTML='<div class=ok>✔ Acknowledged — both findings will be reported neutrally.</div>'">Acknowledge &amp; keep both</button></div>`);
+  $("flags").innerHTML = fl.length?fl.join(""):`<div class="ok">✔ No contradictions detected between interview, observation and SPM entries.</div>`;
+  $("fups").innerHTML =
+   `<p class="hint" style="margin-bottom:10px">Before writing, the app checks whether anything the report needs is missing. If so, it suggests at most TWO follow-ups — each tells you <b>what is missing</b>, <b>why it matters for this report</b>, and <b>what to do next</b>. Answer while the family is still with you, or dismiss if not relevant.</p>
+    <div class="qcard"><span class="src">Ask the parent · files to Daily Routines</span>
+      <p style="margin:6px 0"><b>Missing:</b> No grooming-tolerance history recorded (tooth-brushing, hair-washing, nail-cutting).</p>
+      <p style="margin:6px 0"><b>Why it matters:</b> Touch was flagged in your entries — without a daily-routine example, the Interpretation section cannot link the score to real home life.</p>
+      <p style="margin:6px 0"><b>Next step:</b> Ask now: “Does ${childName()} tolerate tooth-brushing and hair-washing at home?”</p>
+      <button class="btn ghost" onclick="this.parentElement.innerHTML='<span class=src>Answered</span> ✔ Recorded to Daily Routines.'">Answer now</button> <button class="btn ghost" onclick="this.parentElement.remove()">Dismiss</button></div>
+    <div class="qcard"><span class="src">Observe before the child leaves · files to Bilateral Integration &amp; Midline</span>
+      <p style="margin:6px 0"><b>Missing:</b> Hand preference was not rated on Screen 5.</p>
+      <p style="margin:6px 0"><b>Why it matters:</b> Hand preference supports the bilateral-integration picture in the ASI section; leaving it blank weakens that paragraph.</p>
+      <p style="margin:6px 0"><b>Next step:</b> Offer a crayon or spoon at midline and note which hand ${childName()} uses, then rate the item.</p>
+      <button class="btn ghost" onclick="this.parentElement.innerHTML='<span class=src>Answered</span> ✔ Recorded to Bilateral Integration &amp; Midline.'">Answer now</button> <button class="btn ghost" onclick="this.parentElement.remove()">Dismiss</button></div>
+    <p class="hint">Never more than two questions — and only when information is genuinely insufficient.</p>`;
+}
+
+/* ================= SCREEN 9 ================= */
+function childName(){ return $("prefname").value || $("fullname").value.split(" ")[0] || "[Child]"; }
+function pronoun(){ return S.seg.sex==="Female"?["she","her"]:["he","his"]; }
+function copyPrompt(){ alert("Mockup: the structured prompt (with [Child] placeholders, no name/IC/DOB) is copied to your clipboard, ready to paste into your preferred AI assistant (ChatGPT, Claude, Gemini, Copilot or others)."); }
+function loadSample(){
+  const n=childName(), [p,pp]=pronoun();
+  S.secs={
+   "Occupational Profile of a Child":`${n} is a ${$("age").value||"—"}-old ${S.seg.sex==="Female"?"girl":"boy"} who lives with ${pp} family. Based on caregiver report, early milestones were generally achieved within the expected range. ${n} is developing independence in self-care, with support still required for dressing and grooming. The family's main priority for therapy is ${sel("hopes")[0]||"greater independence in daily routines"}.`,
+   "Parental Concern":`Parents expressed concerns primarily regarding ${sel("concerns").slice(0,2).join(" and ").toLowerCase()||"attention and daily routines"}. ${$("concerntext").value?`In their words: “${$("concerntext").value}.”`:""}`,
+   "General Observation":`During the screening session, ${n} ${S.seg["gen:Separation from caregiver"]==="Separated easily"?"separated easily from the caregiver":"required time to separate from the caregiver"} and engaged with the therapy environment. Attention to activity was ${(S.seg["gen:Attention to activity"]||"variable").toLowerCase()}, and ${p} was able to follow ${(S.seg["gen:Following instructions"]||"simple").toLowerCase()} instructions.`,
+   "Sensory Integration and Postural Praxis Observations (ASI Framework)":`During structured play, areas of significant concern included: ${Object.entries(S.seg).filter(([k,v])=>k.startsWith("asi:")&&v==="Significant concern").map(([k])=>k.slice(4).toLowerCase()).slice(0,3).join("; ")||"none — responses were generally age-appropriate"}. Items rated as mild concern will be monitored; “Not assessed” items are excluded from this report.`,
+   "Interpretation":`The SPM results indicate ${Object.entries(S.spm).filter(([k,v])=>+v>=70).map(([k])=>k.toLowerCase()).join(", ")?`significant sensory processing difficulties, particularly in ${Object.entries(S.spm).filter(([k,v])=>+v>=70).map(([k])=>k.toLowerCase()).join(", ")}`:"largely typical sensory processing, with selected areas to monitor"}. These findings were interpreted alongside the caregiver interview and clinical observation, and are likely contributing to the functional challenges reported.`,
+   "Child's Strengths":sel("strengths").map(s=>"• "+s).join("\n")||"• (select strengths on Screen 7)",
+   "Summary":`Based on caregiver report, SPM findings, and screening-level clinical observations, ${n} presents with a profile of strengths in ${sel("strengths")[0]?.toLowerCase()||"engagement"} alongside challenges affecting daily participation. Findings are preliminary and screening-level.`,
+   "Recommendation":`• Occupational therapy intervention focusing on the areas identified above\n• Collaboration with caregivers${$("school").value&&$("school").value!=="Not yet schooling"?" and school":""} for consistent strategies\n• Use of ${sel("interests")[0]?.toLowerCase()||"the child's interests"} as motivating activities within intervention`
+  };
+  buildSections();
+}
+function buildSections(){
+  $("sections").innerHTML="";
+  RSECTIONS.forEach(t=>{
+    const c=document.createElement("div"); c.className="secard";
+    c.innerHTML=`<div class="hd"><b>${t}</b><span class="mini"><label><input type="checkbox" class="rv"> Reviewed</label><button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="alert('Mockup: copies a section-only prompt to regenerate this section in your preferred AI assistant.')">↻ Regenerate</button></span></div><textarea>${S.secs[t]||""}</textarea>`;
+    c.querySelector("textarea").addEventListener("input",e=>S.secs[t]=e.target.value);
+    $("sections").appendChild(c);
+  });
+}
+buildSections();
+
+/* ================= SCREEN 10 — TEMPLATE PREVIEW ================= */
+function fmt(d){ if(!d) return "—"; return new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}); }
+function buildReport(){
+  const n=$("fullname").value||"—";
+  const scales=(S.ver==="SPM"?SPM_SCALES:SPM2_SCALES);
+  const rows=scales.map(sc=>{
+    const r=interp(S.spm[sc]); const bold=sc.includes("Total")?"font-weight:700":"";
+    if(!r||r.err) return `<tr><td style="${bold}">${sc}</td><td>—</td><td style="color:#777">Not administered</td></tr>`;
+    return `<tr><td style="${bold}">${sc}</td><td style="${bold}">${S.spm[sc]}</td><td style="background:${r.bg};color:${r.fg};font-weight:600">${S.ver==="SPM"?r.lbl:r.lbl2}</td></tr>`;
+  }).join("");
+  const dxtext = S.seg.dx==="Diagnosed" ? ([...S.chips["dxchips"]].join(", ")+($("dxother").value?" — "+$("dxother").value:"")) : ($("dxother").value||"");
+  $("reportpage").innerHTML=`
+    <div class="cpybar">Copyright© 2026 Playmove Therapy for Children OT Report</div>
+    <img class="rlogo" src="${LOGO}" alt="PlayMove">
+    <div class="rtitle">OCCUPATIONAL THERAPY SCREENING REPORT</div>
+    <div class="rhead">
+      <p>Name: <span>${n}</span></p>
+      <p>Date of Birth: <span>${fmt($("dob").value)}</span></p>
+      <p>Age at Assessment: <span>${$("age").value||"—"}</span></p>
+      <p>Date of Assessment: <span>${fmt($("doa").value)}</span></p>
+      <p>Service Provider's Name: <span>${$("tname").value||"—"}</span></p>
+      <p>Service Provider's Profession: <span>Occupational Therapist</span></p>
+      <p>Diagnosis: <span>${dxtext}</span></p>
+    </div>
+    <div class="rpt">
+      <p style="margin-top:14px">This report is based on the following assessments:</p>
+      <ol style="margin:0 0 10px 30px">
+        <li><b>Sensory Processing Measure (${S.ver==="SPM"?"SPM":"SPM-2"} – Home Form)</b></li>
+        <li><b>Clinical observations</b>, including sensory processing, postural control, balance, coordination, and gross motor skills during play</li>
+        <li><b>Caregiver Interview (Occupational Profile of a Child)</b></li>
+      </ol>
+      <h4>Occupational Profile of a Child</h4><p>${(S.secs["Occupational Profile of a Child"]||"—").replace(/\n/g,"<br>")}</p>
+      <h4>Parental Concern</h4><p>${(S.secs["Parental Concern"]||"—")}</p>
+      <h4>General Observation</h4><p>${(S.secs["General Observation"]||"—")}</p>
+      <h4>Sensory Integration and Postural Praxis Observations (ASI Framework)</h4><p>${(S.secs["Sensory Integration and Postural Praxis Observations (ASI Framework)"]||"—")}</p>
+      <table><caption>Sensory Processing Measure (${S.ver==="SPM"?"SPM":"SPM-2"} – Home Form)</caption>
+        <tr><th>Area</th><th>T-Score</th><th>Interpretation</th></tr>${rows}</table>
+      <h4>Interpretation</h4><p>${(S.secs["Interpretation"]||"—")}</p>
+      <h4>Child's Strengths</h4><ul>${(S.secs["Child's Strengths"]||"").split("\n").filter(x=>x.trim()).map(x=>`<li>${x.replace(/^•\s*/,"")}</li>`).join("")||"<li>—</li>"}</ul>
+      <h4>Summary</h4><p>${(S.secs["Summary"]||"—")}</p>
+      <h4>Recommendation</h4><ul>${(S.secs["Recommendation"]||"").split("\n").filter(x=>x.trim()).map(x=>`<li>${x.replace(/^•\s*/,"")}</li>`).join("")||"<li>—</li>"}</ul>
+      <p class="disc">Disclaimer: This report reflects findings from a screening session only and does not constitute a formal diagnosis. Further standardized assessments and interdisciplinary collaboration with medical and therapy providers are necessary to determine the full scope of the child developmental profile and to guide individualized intervention planning.</p>
+      <div class="sigrow"><span>Prepared by</span><span>Date: ${fmt($("doa").value)}</span></div>
+      <div class="sigline"></div>
+      <p style="font-weight:700;margin-top:6px">${$("tname").value||"—"}<br>Occupational Therapist ${$("tmahpc").value||""}<br>Date: ${fmt($("doa").value)}</p>
+      <p style="font-style:italic;font-weight:700;font-size:13px;margin-top:10px">If you have any questions regarding this report, please do not hesitate to contact me at ${$("tphone").value||"—"}.</p>
+    </div>`;
+}
+
+/* ================= NAVIGATION ================= */
+function go(n){
+  if(n<1||n>10) return;
+  if(n>1){ /* Screen1 gate */
+    if(cur===1 && n>1 && !( $("fullname").value && $("dob").value && S.seg.sex && $("informant").value
+        && $("tname").value && $("tmahpc").value && $("tphone").value )){
+      alert("Required before continuing: child's full name, date of birth, sex, informant — and your therapist name, MAHPC number and contact number."); return; }
+    if(cur===7 && n>7 && sel("strengths").length===0){
+      alert("Please select at least one strength — every PlayMove report is strengths-based."); return; }
+  }
+  cur=n;
+  document.querySelectorAll(".screen").forEach((s,i)=>s.classList.toggle("active",i===n-1));
+  document.querySelectorAll("#stepper button").forEach((b,i)=>{
+    b.classList.toggle("active",i===n-1); b.classList.toggle("done",i<n-1); });
+  const cb=$("childbar");
+  if(n>1 && $("fullname").value){ cb.style.display="block";
+    cb.textContent=`${childName()} · ${$("age").value||"age —"} · ${S.seg.sex||"—"} · ${S.ver} Home Form`; }
+  else cb.style.display="none";
+  $("backbtn").style.visibility=n===1?"hidden":"visible";
+  $("nextbtn").style.display=n===10?"none":"inline-block";
+  if(n===8) buildReview();
+  if(n===10) buildReport();
+  window.scrollTo(0,0);
+}
+go(1);
+window.addEventListener("beforeunload",e=>{
+  if($("fullname").value){ e.preventDefault(); e.returnValue=""; }
+});
+</script>
+</body>
+</html>

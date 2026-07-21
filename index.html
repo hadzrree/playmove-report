@@ -187,6 +187,18 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
       <div class="field"><label>Contact number</label><input id="cgphone" inputmode="numeric"></div>
     </div>
   </div>
+  <div class="card"><h3>E — Parent/guardian consent</h3>
+    <div class="signoff" style="margin:0 0 12px; border:0; padding:0">
+      <input type="checkbox" id="consentchk" style="width:18px;height:18px;margin-top:2px">
+      <label for="consentchk" style="font-size:13.5px">The parent/guardian consents to this screening and to a written report being prepared and shared with them.</label>
+    </div>
+    <div class="grid">
+      <div class="field"><label>Consent given by</label><input id="consname" placeholder="Parent/guardian full name"></div>
+      <div class="field"><label>Relationship</label><select id="consrel"><option></option><option>Mother</option><option>Father</option><option>Legal guardian</option><option>Other</option></select></div>
+      <div class="field"><label>Date</label><input type="date" id="consdate"></div>
+    </div>
+    <p class="hint" style="margin-top:8px">Consent is required before the report can be exported on Screen 10 — screening entry can continue in the meantime.</p>
+  </div>
 </section>
 
 <!-- ========== SCREEN 2 ========== -->
@@ -209,6 +221,12 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <h2 class="title">3 · Parent Interview</h2>
   <p class="sub">Every domain is skippable — skipped domains are simply left out of the report.</p>
   <div id="domains"></div>
+  <div class="card" id="redflagcard" style="border:1.5px solid var(--coral)">
+    <h3 style="color:#B03A2E">Red flags — medical &amp; safeguarding</h3>
+    <p class="hint" style="margin-bottom:10px">Tick anything reported by the family or observed today. Red flags do not change the report's interpretation — they prompt discussion with the family and referral to the right service.</p>
+    <div class="chips" id="redflags"></div>
+    <div id="rfbanner" class="flag" style="display:none; margin-top:12px"></div>
+  </div>
 </section>
 
 <!-- ========== SCREEN 4 ========== -->
@@ -279,8 +297,9 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <section class="screen" id="s10">
   <h2 class="title">10 · Preview PDF</h2>
   <p class="sub">Exact template preview. Tick the sign-off to enable export.</p>
+  <div id="consentwarn" class="flag" style="display:none">Parent/guardian consent has not been recorded on Screen 1 — export is disabled until it is. <button class="btn ghost" onclick="go(1)">Go to consent</button></div>
   <div class="signoff">
-    <input type="checkbox" id="signoff" style="width:18px;height:18px;margin-top:2px" onchange="document.getElementById('exportbtn').disabled=!this.checked">
+    <input type="checkbox" id="signoff" style="width:18px;height:18px;margin-top:2px" onchange="updateExport()">
     <label for="signoff" style="font-size:13.5px">I have reviewed this report and it reflects my clinical findings.</label>
   </div>
   <div style="display:flex; gap:10px; margin-bottom:6px">
@@ -301,7 +320,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <div id="toasts" aria-live="polite"></div>
 <footer class="note">
   <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
-  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.3.0 (M3)</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.4.0 (M4)</span>
 </footer>
 
 <script>
@@ -366,6 +385,15 @@ const DOMAINS = [
    "Can wait or take turns with support",
    "Safety concern present (runs off in public, climbs dangerously)",
    {q:"What helps calm the child?", chips:["Carried / hugged","Quiet space","Screen","Music","Favourite object","Movement"], id:"calmchips", other:true}]}
+];
+const REDFLAGS=[
+ "Loss of previously acquired skills (regression)",
+ "Possible seizures or episodes of blank staring",
+ "No response to name or everyday sounds (hearing concern)",
+ "Significant feeding difficulty or poor weight gain",
+ "Unexplained bruises or injuries",
+ "Disclosure or suspicion of harm to the child",
+ "Indicators of neglect (hygiene, supervision, missed medical care)"
 ];
 const COMM=["Verbal sentences","Single words","Vocalisations","Gestures / pointing","Echolalia noted","Led adult by hand"];
 const PLAYQ=["Pretend play seen","Repetitive play","Lines up toys","Explores varied toys"];
@@ -552,6 +580,13 @@ DOMAINS.forEach(d=>{
 chips("neochips",NEONATAL,true);
 pendingChips.forEach(([id,list,o])=>chips(id,list,o));
 GENOBS.forEach(([l,o])=>segRow($("genobs"),l,o,"gen:"+l));
+chips("redflags",REDFLAGS,true);
+$("redflags").addEventListener("click",()=>{
+  const n=sel("redflags").length, b=$("rfbanner");
+  b.style.display = n? "block":"none";
+  if(n) b.innerHTML="<b>Red flag noted.</b> Discuss with the family today and consider referral to the appropriate medical practitioner or support service. This tool does not diagnose — record what was reported or observed, and document your action.";
+});
+$("consdate").valueAsDate = new Date();
 /* Screen 4 chip items (bank Part A: A6 communication, A8 play quality) */
 [["Communication observed",COMM,"commchips"],["Play quality",PLAYQ,"playqual"]].forEach(([q,list,id])=>{
   const w=document.createElement("div"); w.className="rowline"; w.style.display="block";
@@ -646,6 +681,10 @@ function buildReview(){
   const touch=+S.spm["Touch"];
   if(touch>=70 && S.seg["iv:Upset by messy play / clothing textures"]==="Never")
     fl.push(`<div class="flag"><b>Report–interview mismatch:</b> SPM Touch is in the red range (T=${touch}) but the interview recorded “Never” for touch-related upset. The report will state both. <br><br><button class="btn ghost" onclick="go(3)">Go to Parent Interview</button> <button class="btn ghost" onclick="this.closest('.flag').outerHTML='<div class=ok>✔ Acknowledged — both findings will be reported neutrally.</div>'">Acknowledge &amp; keep both</button></div>`);
+  /* red flags can never be silently forgotten */
+  const rf=sel("redflags");
+  if(rf.length) fl.unshift(`<div class="flag"><b>Red flag${rf.length>1?"s":""} recorded on Screen 3:</b><br>• ${rf.join("<br>• ")}<br><br>Discuss with the family and consider referral. A referral recommendation will be included in the report. <button class="btn ghost" onclick="go(3)">Review red flags</button></div>`);
+  if(!$("consentchk").checked) fl.push(`<div class="qcard"><span class="src">Consent pending</span><p style="margin:6px 0">Parent/guardian consent has not been ticked on Screen 1. You can continue preparing the report, but export will be blocked until consent is recorded.</p><button class="btn ghost" onclick="go(1)">Go to consent</button></div>`);
   $("flags").innerHTML = fl.length?fl.join(""):`<div class="ok">✔ No contradictions detected between interview, observation and SPM entries.</div>`;
   $("fups").innerHTML =
    `<p class="hint" style="margin-bottom:10px">Before writing, the app checks whether anything the report needs is missing. If so, it suggests at most TWO follow-ups — each tells you <b>what is missing</b>, <b>why it matters for this report</b>, and <b>what to do next</b>. Answer while the family is still with you, or dismiss if not relevant.</p>
@@ -676,7 +715,7 @@ function loadSample(){
    "Interpretation":`The SPM results indicate ${Object.entries(S.spm).filter(([k,v])=>+v>=70).map(([k])=>k.toLowerCase()).join(", ")?`significant sensory processing difficulties, particularly in ${Object.entries(S.spm).filter(([k,v])=>+v>=70).map(([k])=>k.toLowerCase()).join(", ")}`:"largely typical sensory processing, with selected areas to monitor"}. These findings were interpreted alongside the caregiver interview and clinical observation, and are likely contributing to the functional challenges reported.`,
    "Child's Strengths":sel("strengths").map(s=>"• "+s).join("\n")||"• (select strengths on Screen 7)",
    "Summary":`Based on caregiver report, SPM findings, and screening-level clinical observations, ${n} presents with a profile of strengths in ${sel("strengths")[0]?.toLowerCase()||"engagement"} alongside challenges affecting daily participation. Findings are preliminary and screening-level.`,
-   "Recommendation":`• Occupational therapy intervention focusing on the areas identified above\n• Collaboration with caregivers${$("school").value&&$("school").value!=="Not yet schooling"?" and school":""} for consistent strategies\n• Use of ${sel("interests")[0]?.toLowerCase()||"the child's interests"} as motivating activities within intervention`
+   "Recommendation":`• Occupational therapy intervention focusing on the areas identified above\n• Collaboration with caregivers${$("school").value&&$("school").value!=="Not yet schooling"?" and school":""} for consistent strategies\n• Use of ${sel("interests")[0]?.toLowerCase()||"the child's interests"} as motivating activities within intervention${sel("redflags").length?"\n• Discussion with the family regarding the concern(s) noted during screening, with referral to the appropriate medical practitioner or support service":""}`
   };
   buildSections();
 }
@@ -740,6 +779,12 @@ function buildReport(){
     </div>`;
 }
 
+/* consent + sign-off both gate export */
+function updateExport(){
+  const consent=$("consentchk").checked;
+  $("consentwarn").style.display = consent? "none":"block";
+  $("exportbtn").disabled = !($("signoff").checked && consent);
+}
 /* ================= NAVIGATION ================= */
 function go(n){
   if(n<1||n>10) return;
@@ -775,7 +820,7 @@ function go(n){
   $("backbtn").style.visibility=n===1?"hidden":"visible";
   $("nextbtn").style.display=n===10?"none":"inline-block";
   if(n===8) buildReview();
-  if(n===10) buildReport();
+  if(n===10){ buildReport(); updateExport(); }
   window.scrollTo(0,0);
 }
 /* ================= M1 — AUTOSAVE & DRAFT RECOVERY =================
@@ -788,14 +833,21 @@ let autosaveEnabled=false, dirty=false, saveTimer=null;
 function collectState(){
   const fields={};
   document.querySelectorAll("main input[id], main select[id], main textarea[id]").forEach(el=>{
-    if(el.type==="checkbox") return;               // sign-off must never restore ticked
-    fields[el.id]=el.value;
+    if(el.type==="checkbox"){
+      if(el.id==="signoff") return;                // sign-off must never restore ticked
+      fields["chk:"+el.id]=el.checked?"1":"";
+    } else fields[el.id]=el.value;
   });
   return { fields, seg:S.seg, spm:S.spm, ver:S.ver, secs:S.secs, other:S.other,
            chips:Object.fromEntries(Object.entries(S.chips).map(([k,v])=>[k,[...v]])), cur };
 }
 function applyState(st){
-  Object.entries(st.fields||{}).forEach(([id,v])=>{ const el=$(id); if(el) el.value=v; });
+  Object.entries(st.fields||{}).forEach(([id,v])=>{
+    if(id.startsWith("chk:")){ const el=$(id.slice(4)); if(el) el.checked=!!v; return; }
+    const el=$(id); if(el) el.value=v;
+  });
+  /* re-show the red-flag banner if flags were saved */
+  setTimeout(()=>{ if(sel("redflags").length) $("redflags").dispatchEvent(new Event("click")); },0);
   if($("dob").value) calcAge();
   /* segmented ratings — restore by clicking, so colours, dots and
      conditional sections (e.g., neonatal list) all re-trigger */

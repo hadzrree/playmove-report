@@ -5,10 +5,10 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 // Public browser-safe Supabase project URL.
-export const SUPABASE_URL = "YOUR_SUPABASE_URL";
+export const SUPABASE_URL = https://dozwsicxriyxtjvtntfy.supabase.co/rest/v1/;
 
 // Public browser-safe anon key. Do not use a service-role key in GitHub Pages.
-export const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+export const SUPABASE_ANON_KEY = sb_publishable_Uvn2DEJyqZZ8Cc79sLkyIQ_8kbCFI4p
 
 // Shared client used by login, signup, logout, and protected-page checks.
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

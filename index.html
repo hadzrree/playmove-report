@@ -102,6 +102,13 @@ td.interp{font-weight:600; min-width:170px;}
 .sigrow{display:flex; justify-content:space-between; margin-top:26px; font-weight:700;}
 .sigline{border-bottom:1.5px solid #111; width:260px; height:44px; margin-top:14px;}
 .signoff{display:flex; gap:10px; align-items:flex-start; background:#fff; border:1px solid var(--line); padding:14px 16px; border-radius:10px; margin:14px 0;}
+/* M2 validation UI */
+.invalid{border-color:var(--coral) !important; background:#FFF7F6 !important; outline:1.5px solid var(--coral);}
+#toasts{position:fixed; top:64px; right:18px; z-index:200; display:flex; flex-direction:column; gap:8px; max-width:360px;}
+.toast{background:var(--navy); color:#fff; border-radius:10px; padding:11px 15px; font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.28); line-height:1.4;}
+.toast.err{background:#B03A2E;}
+.fielderr{color:#B03A2E; font-size:11.5px; display:none;}
+nav.stepper button.part{border-bottom-color:var(--yellow); color:var(--navy);}
 footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line); padding:8px 24px; font-size:12px; color:var(--muted); display:flex; justify-content:space-between; z-index:60;}
 @media print{
   *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important;}
@@ -141,7 +148,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <p class="sub">Under 60 seconds. Only name, DOB, sex and informant are required.</p>
   <div class="card"><h3>A — Child details</h3>
     <div class="grid">
-      <div class="field"><label>IC / MyKid number <span class="hint">(optional — auto-fills DOB &amp; sex)</span></label><input id="ic" placeholder="e.g. 210322-01-1234" maxlength="14"></div>
+      <div class="field"><label>IC / MyKid number <span class="hint">(optional — auto-fills DOB &amp; sex)</span></label><input id="ic" placeholder="e.g. 210322-01-1234" maxlength="14"><span class="fielderr" id="icerr">IC looks incomplete — auto-fill skipped. The field is optional.</span></div>
       <div class="field"><label>Full name *</label><input id="fullname" placeholder="Child's full name"></div>
       <div class="field"><label>Preferred name</label><input id="prefname" placeholder="Auto-suggested from first name"></div>
       <div class="field"><label>Date of birth *</label><input type="date" id="dob"></div>
@@ -158,7 +165,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
       <div class="field"><label>Date of screening</label><input type="date" id="doa"></div>
       <div class="field"><label>Therapist name *</label><input id="tname" placeholder="Full name as registered" autocomplete="name"></div>
       <div class="field"><label>MAHPC registration number *</label><input id="tmahpc" placeholder="e.g. MAHPC(OT)00712"></div>
-      <div class="field"><label>Contact number *</label><input id="tphone" inputmode="tel" placeholder="+60 19-705 8258"></div>
+      <div class="field"><label>Contact number *</label><input id="tphone" inputmode="tel" placeholder="+60 19-705 8258"><span class="fielderr" id="phoneerr">Please enter a valid phone number (digits, spaces, - and + only, at least 9 digits).</span></div>
     </div>
     <p class="hint" style="margin-top:8px">Your details are remembered on this device only, so you enter them once. Child data is never stored.</p>
   </div>
@@ -258,7 +265,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <div class="card">
     <div class="prompthdr">
       <button class="btn primary" onclick="copyPrompt()">📋 Copy Prompt</button>
-      <button class="btn ghost" onclick="alert('The full prompt would open here for you to inspect — proving no identifiable data is included.')">View prompt</button>
+      <button class="btn ghost" onclick="toast('The full prompt would open here for you to inspect — proving no identifiable data is included. Real prompt arrives in Milestone 6.', false)">View prompt</button>
       <button class="btn accent" onclick="loadSample()">Load sample narrative (mockup demo)</button>
     </div>
     <p class="hint" style="margin-top:8px">In the real app you would paste the AI assistant's reply below; it is parsed into the sections and “[Child]” becomes the preferred name locally. You may further refine any section using your preferred AI assistant.</p>
@@ -291,9 +298,10 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <button class="btn primary" id="nextbtn" onclick="go(cur+1)">Next →</button>
 </div>
 
+<div id="toasts" aria-live="polite"></div>
 <footer class="note">
   <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
-  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.1.1 (M1)</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.2.0 (M2)</span>
 </footer>
 
 <script>
@@ -384,6 +392,34 @@ let cur = 1;
 
 /* ================= HELPERS ================= */
 const $ = id => document.getElementById(id);
+/* M2 — toasts, field errors, validation state */
+function toast(msg, err=true){
+  const t=document.createElement("div"); t.className="toast"+(err?" err":""); t.textContent=msg;
+  $("toasts").appendChild(t); setTimeout(()=>t.remove(), 5000);
+}
+const visited=new Set();
+function s1Missing(){
+  const m=[];
+  if(!$("fullname").value) m.push(["fullname","child's full name"]);
+  if(!$("dob").value)      m.push(["dob","date of birth"]);
+  if(!S.seg.sex)           m.push(["sexseg","sex"]);
+  if(!$("informant").value)m.push(["informant","informant"]);
+  if(!$("tname").value)    m.push(["tname","therapist name"]);
+  if(!$("tmahpc").value)   m.push(["tmahpc","MAHPC number"]);
+  if(!$("tphone").value||!phoneOk($("tphone").value)) m.push(["tphone","contact number"]);
+  return m;
+}
+function phoneOk(v){ return /^[+]?[\d\s-]+$/.test(v) && (v.match(/\d/g)||[]).length>=9; }
+function spmInvalid(){ return Object.values(S.spm).some(v=>{const r=interp(v); return r&&r.err;}); }
+function screenComplete(i){
+  switch(i){
+    case 1: return s1Missing().length===0;
+    case 6: return visited.has(6) && !spmInvalid();
+    case 7: return sel("strengths").length>0;
+    default: return visited.has(i);
+  }
+}
+document.addEventListener("input", e=>{ e.target.classList?.remove("invalid"); }, true);
 function chips(elId, list, withOther=false){
   const el = $(elId); S.chips[elId] = S.chips[elId]||new Set();
   list.forEach(v=>{
@@ -406,6 +442,7 @@ function sel(elId){ const a=[...(S.chips[elId]||[])]; if(S.other[elId]) a.push(S
 function seg(el, key){
   el.dataset.key = key;
   el.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    el.classList.remove("invalid");
     el.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on"); S.seg[key]=b.dataset.v||b.textContent;
     if(key==="dx") $("dxrow").style.display = (S.seg.dx==="Diagnosed")?"flex":"none";
@@ -477,7 +514,13 @@ $("ic").addEventListener("change",e=>{
     $("dob").value=`${yr}-${mo}-${dd}`; calcAge();
     const sex=(+m[11])%2===1?"Male":"Female";
     $("sexseg").querySelectorAll("button").forEach(b=>{b.classList.toggle("on",b.dataset.v===sex);}); S.seg.sex=sex;
-  } else if(m.length>0){ alert("IC number looks incomplete — DOB and sex not auto-filled. The field stays optional."); }
+    $("icerr").style.display="none";
+  } else $("icerr").style.display = m.length>0 ? "block" : "none";
+});
+$("tphone").addEventListener("blur",e=>{
+  const bad = e.target.value && !phoneOk(e.target.value);
+  $("phoneerr").style.display = bad ? "block" : "none";
+  e.target.classList.toggle("invalid", bad);
 });
 $("dob").addEventListener("change",calcAge);
 function calcAge(){
@@ -495,7 +538,7 @@ function calcAge(){
 $("spmver").querySelectorAll("button").forEach(b=>b.onclick=()=>{
   $("spmver").querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
   const old=S.ver; S.ver=b.dataset.v;
-  if(old!==S.ver && Object.keys(S.spm).length) alert("Version changed — shared scale scores are kept. Please review each score against the correct form.");
+  if(old!==S.ver && Object.values(S.spm).some(v=>v!=="")) toast("Version changed — shared scale scores were kept. Please review each score against the correct form.", false);
   buildSPM();
 });
 function interp(t){
@@ -556,7 +599,7 @@ function buildReview(){
 /* ================= SCREEN 9 ================= */
 function childName(){ return $("prefname").value || $("fullname").value.split(" ")[0] || "[Child]"; }
 function pronoun(){ return S.seg.sex==="Female"?["she","her"]:["he","his"]; }
-function copyPrompt(){ alert("Mockup: the structured prompt (with [Child] placeholders, no name/IC/DOB) is copied to your clipboard, ready to paste into your preferred AI assistant (ChatGPT, Claude, Gemini, Copilot or others)."); }
+function copyPrompt(){ toast("Mockup: the structured prompt (with [Child] placeholders, no name/IC/DOB) is copied, ready for your preferred AI assistant. Real prompt arrives in Milestone 6.", false); }
 function loadSample(){
   const n=childName(), [p,pp]=pronoun();
   S.secs={
@@ -575,7 +618,7 @@ function buildSections(){
   $("sections").innerHTML="";
   RSECTIONS.forEach(t=>{
     const c=document.createElement("div"); c.className="secard";
-    c.innerHTML=`<div class="hd"><b>${t}</b><span class="mini"><label><input type="checkbox" class="rv"> Reviewed</label><button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="alert('Mockup: copies a section-only prompt to regenerate this section in your preferred AI assistant.')">↻ Regenerate</button></span></div><textarea>${S.secs[t]||""}</textarea>`;
+    c.innerHTML=`<div class="hd"><b>${t}</b><span class="mini"><label><input type="checkbox" class="rv"> Reviewed</label><button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="toast('Mockup: copies a section-only prompt to regenerate this section in your preferred AI assistant.', false)">↻ Regenerate</button></span></div><textarea>${S.secs[t]||""}</textarea>`;
     c.querySelector("textarea").addEventListener("input",e=>S.secs[t]=e.target.value);
     $("sections").appendChild(c);
   });
@@ -634,17 +677,31 @@ function buildReport(){
 /* ================= NAVIGATION ================= */
 function go(n){
   if(n<1||n>10) return;
-  if(n>1){ /* Screen1 gate */
-    if(cur===1 && n>1 && !( $("fullname").value && $("dob").value && S.seg.sex && $("informant").value
-        && $("tname").value && $("tmahpc").value && $("tphone").value )){
-      alert("Required before continuing: child's full name, date of birth, sex, informant — and your therapist name, MAHPC number and contact number."); return; }
+  if(n>1){
+    if(cur===1 && n>1){
+      const m=s1Missing();
+      if(m.length){
+        m.forEach(([id])=>$(id).classList.add("invalid"));
+        if($("tphone").value && !phoneOk($("tphone").value)) $("phoneerr").style.display="block";
+        toast("Still needed on this screen: "+m.map(x=>x[1]).join(", ")+".");
+        return;
+      }
+      $("phoneerr").style.display="none";
+    }
+    if(cur===6 && n>6 && spmInvalid()){
+      toast("One or more SPM scores are invalid — enter whole numbers between 40 and 80, or leave the scale blank."); return; }
     if(cur===7 && n>7 && sel("strengths").length===0){
-      alert("Please select at least one strength — every PlayMove report is strengths-based."); return; }
+      toast("Select at least one strength — every PlayMove report is strengths-based."); return; }
   }
+  visited.add(cur);
   cur=n;
   document.querySelectorAll(".screen").forEach((s,i)=>s.classList.toggle("active",i===n-1));
   document.querySelectorAll("#stepper button").forEach((b,i)=>{
-    b.classList.toggle("active",i===n-1); b.classList.toggle("done",i<n-1); });
+    const s=i+1, comp=screenComplete(s);
+    b.classList.toggle("active", s===n);
+    b.classList.toggle("done",  s!==n && comp);
+    b.classList.toggle("part",  s!==n && !comp && visited.has(s));
+  });
   const cb=$("childbar");
   if(n>1 && $("fullname").value){ cb.style.display="block";
     cb.textContent=`${childName()} · ${$("age").value||"age —"} · ${S.seg.sex||"—"} · ${S.ver} Home Form`; }
@@ -731,7 +788,7 @@ function resumeDraft(){
     autosaveEnabled=true;
     $("saveinfo").textContent="Draft restored ✓ — autosave is on.";
   }catch(e){ $("draftbar").innerHTML=""; autosaveEnabled=true;
-    alert("Sorry — the saved draft could not be read and has been cleared."); clearDraft(); }
+    toast("Sorry — the saved draft could not be read and has been cleared."); clearDraft(); }
 }
 (function initDraft(){
   let d=null;

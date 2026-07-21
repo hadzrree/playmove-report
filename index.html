@@ -130,6 +130,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 </header>
 
 <nav class="stepper" id="stepper"></nav>
+<div id="draftbar"></div>
 <div class="childbar" id="childbar"></div>
 
 <main>
@@ -290,7 +291,10 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <button class="btn primary" id="nextbtn" onclick="go(cur+1)">Next →</button>
 </div>
 
-<footer class="note"><span>Session-only data — nothing is saved. The exported PDF is the record.</span><span>PlayMove Therapy for Children · v1.0.0 (M0 baseline)</span></footer>
+<footer class="note">
+  <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.1.0 (M1)</span>
+</footer>
 
 <script>
 /* ================= DATA (data-driven per Development Rules §3.4) ================= */
@@ -400,6 +404,7 @@ function chips(elId, list, withOther=false){
 }
 function sel(elId){ const a=[...(S.chips[elId]||[])]; if(S.other[elId]) a.push(S.other[elId]); return a; }
 function seg(el, key){
+  el.dataset.key = key;
   el.querySelectorAll("button").forEach(b=>b.onclick=()=>{
     el.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
     b.classList.add("on"); S.seg[key]=b.dataset.v||b.textContent;
@@ -410,6 +415,7 @@ function segRow(parent,label,opts,key,small=true,colors=null,onSelect=null){
   const row=document.createElement("div"); row.className="rowline";
   row.innerHTML=`<span class="lbl">${label}</span>`;
   const sg=document.createElement("div"); sg.className="seg"+(small?" small":"");
+  sg.dataset.key = key;
   sg.setAttribute("role","radiogroup"); sg.setAttribute("aria-label",label);
   opts.forEach(o=>{const b=document.createElement("button"); b.textContent=o;
     b.setAttribute("role","radio"); b.setAttribute("aria-checked","false");
@@ -649,10 +655,109 @@ function go(n){
   if(n===10) buildReport();
   window.scrollTo(0,0);
 }
-go(1);
-window.addEventListener("beforeunload",e=>{
-  if($("fullname").value){ e.preventDefault(); e.returnValue=""; }
+/* ================= M1 — AUTOSAVE & DRAFT RECOVERY =================
+   One draft per browser. Saved on every change (debounced). Deleted on
+   PDF export and on Discard. Schema-versioned so future updates never
+   crash on an old draft. Child data never leaves this device.          */
+const DRAFT_KEY="pm_draft", DRAFT_SCHEMA=1;
+let autosaveEnabled=false, dirty=false, saveTimer=null;
+
+function collectState(){
+  const fields={};
+  document.querySelectorAll("main input[id], main select[id], main textarea[id]").forEach(el=>{
+    if(el.type==="checkbox") return;               // sign-off must never restore ticked
+    fields[el.id]=el.value;
+  });
+  return { fields, seg:S.seg, spm:S.spm, ver:S.ver, secs:S.secs, other:S.other,
+           chips:Object.fromEntries(Object.entries(S.chips).map(([k,v])=>[k,[...v]])), cur };
+}
+function applyState(st){
+  Object.entries(st.fields||{}).forEach(([id,v])=>{ const el=$(id); if(el) el.value=v; });
+  if($("dob").value) calcAge();
+  /* segmented ratings — restore by clicking, so colours, dots and
+     conditional sections (e.g., neonatal list) all re-trigger */
+  Object.entries(st.seg||{}).forEach(([key,val])=>{
+    const sg=document.querySelector(`.seg[data-key="${CSS.escape(key)}"]`); if(!sg) return;
+    [...sg.querySelectorAll("button")].find(b=>(b.dataset.v||b.textContent)===val)?.click();
+  });
+  /* chips — restore by clicking matching labels */
+  Object.entries(st.chips||{}).forEach(([elId,vals])=>{
+    const el=$(elId); if(!el) return;
+    vals.forEach(v=>{
+      const c=[...el.querySelectorAll(".chip")].find(x=>x.textContent===v && !x.classList.contains("on"));
+      if(c) c.click();
+    });
+  });
+  /* "Others…" free text */
+  Object.entries(st.other||{}).forEach(([elId,txt])=>{
+    if(!txt) return; const el=$(elId); if(!el) return;
+    const oc=[...el.querySelectorAll(".chip")].find(x=>x.textContent==="Others…");
+    if(oc && !oc.classList.contains("on")) oc.click();
+    const inp=el.querySelector("input"); if(inp){ inp.value=txt; S.other[elId]=txt; }
+  });
+  /* SPM */
+  S.ver=st.ver||"SPM"; S.spm=st.spm||{};
+  $("spmver").querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.v===S.ver));
+  buildSPM();
+  /* generated sections */
+  S.secs=st.secs||{}; buildSections();
+  go(Math.min(st.cur||1,10));
+}
+function saveDraft(){
+  if(!autosaveEnabled) return;
+  try{
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({v:DRAFT_SCHEMA, t:Date.now(),
+      name:$("fullname").value||"", state:collectState()}));
+    dirty=false;
+    $("saveinfo").textContent="Draft saved ✓ "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  }catch(e){ $("saveinfo").textContent="⚠ Draft could not be saved on this device."; }
+}
+function markDirty(){ dirty=true; clearTimeout(saveTimer); saveTimer=setTimeout(saveDraft,800); }
+document.addEventListener("input", markDirty, true);
+document.addEventListener("click", e=>{ if(e.target.closest("main")) markDirty(); }, true);
+
+function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+function discardDraft(fromFooter){
+  if(fromFooter && !confirm("Delete the saved draft on this device and start fresh? This cannot be undone.")) return;
+  clearDraft();
+  if(fromFooter){ autosaveEnabled=false; location.reload(); }
+  else { $("draftbar").innerHTML=""; autosaveEnabled=true; }
+}
+function resumeDraft(){
+  try{
+    const d=JSON.parse(localStorage.getItem(DRAFT_KEY));
+    $("draftbar").innerHTML="";
+    applyState(d.state);
+    autosaveEnabled=true;
+    $("saveinfo").textContent="Draft restored ✓ — autosave is on.";
+  }catch(e){ $("draftbar").innerHTML=""; autosaveEnabled=true;
+    alert("Sorry — the saved draft could not be read and has been cleared."); clearDraft(); }
+}
+(function initDraft(){
+  let d=null;
+  try{ d=JSON.parse(localStorage.getItem(DRAFT_KEY)); }catch(e){}
+  if(d && d.v===DRAFT_SCHEMA && (d.name || Object.keys(d.state?.seg||{}).length)){
+    const when=new Date(d.t).toLocaleString([], {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+    $("draftbar").innerHTML=
+      `<div style="background:#FDF7E7;border-bottom:1px solid var(--yellow);padding:10px 24px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13.5px">
+        <b style="color:var(--navy)">Unfinished report found</b>
+        <span>${d.name?d.name+" · ":""}saved ${when}. Continue where you left off?</span>
+        <button class="btn accent" style="padding:6px 14px" onclick="resumeDraft()">Resume draft</button>
+        <button class="btn ghost" style="padding:6px 14px" onclick="discardDraft(false)">Discard</button>
+      </div>`;
+    autosaveEnabled=false;   // never overwrite the draft until the therapist decides
+  } else if(d && d.v!==DRAFT_SCHEMA){ clearDraft(); autosaveEnabled=true; }
+  else autosaveEnabled=true;
+})();
+/* the exported PDF is the record — clear the draft once it exists */
+window.addEventListener("afterprint",()=>{
+  clearDraft(); dirty=false;
+  $("saveinfo").textContent="Report exported — draft cleared. New changes will start a new draft.";
 });
+window.addEventListener("beforeunload",e=>{
+  if(dirty){ e.preventDefault(); e.returnValue=""; }   // autosaved work closes silently
+});
+go(1);
 </script>
 </body>
 </html>

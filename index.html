@@ -143,7 +143,8 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <header class="app">
   <span class="mark"><img id="hdrlogo" alt="PlayMove"></span>
   <h1>Initial Screening Report Generator</h1>
-  <span class="tag">V1 MOCKUP — for workflow review only</span>
+  <span class="tag">PILOT</span>
+  <button id="helpbtn" onclick="showHelp()" style="background:#fff;color:var(--navy);border:0;border-radius:50%;width:30px;height:30px;font-weight:800;cursor:pointer;font-size:15px" title="Quick start &amp; help">?</button>
 </header>
 
 <nav class="stepper" id="stepper"></nav>
@@ -318,6 +319,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <div style="display:flex; gap:10px; margin-bottom:6px">
     <button class="btn primary" id="exportbtn" disabled onclick="window.print()">⬇ Export PDF (print)</button>
     <button class="btn ghost" onclick="buildReport()">↻ Refresh preview</button>
+    <button class="btn ghost" onclick="startNew()">＋ Start new report</button>
   </div>
   <p class="hint" style="margin-bottom:14px">If the SPM table colours are missing in the exported PDF, tick <b>“Background graphics”</b> in the print dialog (Chrome/Edge: More settings → Options).</p>
   <div class="reportwrap"><div id="printArea"><div class="page" id="reportpage"></div></div></div>
@@ -333,7 +335,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <div id="toasts" aria-live="polite"></div>
 <footer class="note">
   <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
-  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.7.0 (M7)</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.8.0 — Pilot release</span>
 </footer>
 
 <script>
@@ -1127,6 +1129,50 @@ function updateExport(){
   if($("consentwarn")) $("consentwarn").style.display = consent? "none":"block";
   if($("dxwarn10")) $("dxwarn10").style.display = dx? "block":"none";
   if($("exportbtn")) $("exportbtn").disabled = !($("signoff").checked && consent && !dx);
+}
+/* ================= M8 — help, new report, feedback ================= */
+function showHelp(){
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:320;display:flex;align-items:center;justify-content:center;padding:20px";
+  ov.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:640px;width:100%;max-height:88vh;overflow:auto">
+    <div style="background:var(--navy);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:10px;border-radius:14px 14px 0 0">
+      <b style="font-size:16px">Quick start</b>
+      <button class="btn" style="margin-left:auto;background:var(--yellow);color:var(--navy);padding:6px 14px" onclick="this.closest('div').parentElement.remove()">Close</button>
+    </div>
+    <div style="padding:18px 22px;font-size:14px;line-height:1.6;color:var(--txt)">
+      <p style="margin-bottom:10px">Complete the ten steps along the top. Your work <b>autosaves on this device</b> — if you close the tab, reopen the same link and choose <b>Resume</b>.</p>
+      <ol style="margin:0 0 12px 20px">
+        <li><b>Patient Information</b> — child details, your therapist details (remembered on this device), and parent/guardian consent.</li>
+        <li><b>Occupational Profile</b> — participation, concerns, family hopes.</li>
+        <li><b>Parent Interview</b> — tap through the domains; skip any that don't apply. Tick any <b>red flags</b>.</li>
+        <li><b>General</b> &amp; <b>ASI Observation</b> — rate what you saw; "Not assessed" is left out of the report.</li>
+        <li><b>SPM</b> — enter T-scores; colours and labels are automatic.</li>
+        <li><b>Strengths</b> — pick at least one.</li>
+        <li><b>AI Review</b> — checks completeness, flags contradictions, suggests up to two follow-ups.</li>
+        <li><b>Generate</b> — copy the prompt into any AI assistant and paste the reply back, <i>or</i> use <b>Generate draft (no AI needed)</b>. Every section is yours to edit.</li>
+        <li><b>Preview &amp; export</b> — tick sign-off (consent must also be recorded) and print to PDF.</li>
+      </ol>
+      <div style="background:#FDF7E7;border:1px solid var(--yellow);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+        <b>Remember:</b> the AI assists with <i>documentation only</i>. It never diagnoses, and all clinical judgement remains yours. A screening report cannot state a diagnosis — the app blocks export if it detects diagnostic wording.
+      </div>
+      <div style="background:#EEF0FA;border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px">
+        <b>Privacy:</b> the child's name, IC and date of birth never leave this device. The prompt uses "[Child]". The exported PDF is your record — nothing is stored on any server.
+      </div>
+      <p style="font-size:13px;color:var(--muted)">When exporting, tick <b>"Background graphics"</b> in the print dialog so the SPM colours appear. For colour print, use Chrome or Edge on a laptop.</p>
+      <p style="margin-top:12px"><button class="btn ghost" onclick="sendFeedback()">✉ Send pilot feedback</button></p>
+    </div></div>`;
+  document.body.appendChild(ov);
+}
+function sendFeedback(){
+  const ver=(document.body.innerText.match(/v\d+\.\d+\.\d+[^·\n]*/)||["pilot"])[0].trim();
+  const subj=encodeURIComponent("PlayMove Report Generator — pilot feedback ("+ver+")");
+  const body=encodeURIComponent("What screen: \nWhat happened: \nWhat you expected: \n\n(No child details please — describe the issue only.)");
+  window.location.href=`mailto:playmovetheraphy@gmail.com?subject=${subj}&body=${body}`;
+}
+function startNew(){
+  if(!confirm("Start a new report? This clears the current entries on this device. Your therapist details are kept.")) return;
+  clearDraft();               // therapist name/MAHPC/contact persist under their own keys
+  autosaveEnabled=false; location.reload();
 }
 /* ================= NAVIGATION ================= */
 function go(n){

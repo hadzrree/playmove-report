@@ -320,7 +320,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <div id="toasts" aria-live="polite"></div>
 <footer class="note">
   <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
-  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.4.0 (M4)</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.5.0 (M5)</span>
 </footer>
 
 <script>
@@ -667,6 +667,107 @@ function buildSPM(){
 }
 buildSPM();
 
+/* ================= M5 — RULE-BASED SPM ENGINE (docs/07 §5–6) =================
+   Links each SPM scale to its interview items and ASI observation groups.
+   Produces: (a) an Interpretation draft with zero AI, (b) consistency flags. */
+const IV = {
+ messy:"Upset by messy play, clothing textures or light touch",
+ seekTouch:"Seeks touch — touches people or objects constantly, craves tight hugs",
+ seekMove:"Seeks intense movement — spinning, jumping, climbing, crashing",
+ fearMove:"Fearful of feet leaving the ground, swings or stairs",
+ ears:"Covers ears or distressed at everyday sounds (blender, hand dryer, crowds)",
+ lights:"Fascinated by lights, spinning objects, or watching from the corner of the eye",
+ mouths:"Mouths or chews non-food objects",
+ force:"Uses too much force — presses hard, breaks toys, hugs too tightly",
+ alone:"Prefers to play alone rather than with other children",
+ interest:"Shows interest in other children (watches, approaches)",
+ pretend:"Engages in pretend play (feeding a doll, cooking, driving)",
+ repetitive:"Play is repetitive (same toy, same way, lining up, spinning wheels)",
+ share:"Shares enjoyment (shows toys, points to share interest)"
+};
+const INVERTED = new Set([IV.interest, IV.pretend, IV.share]);   // Never/Rarely = concern
+const PHRASE = {
+ [IV.messy]:"reported sensitivity to messy play and clothing textures",
+ [IV.seekTouch]:"constant seeking of touch reported at home",
+ [IV.seekMove]:"reported seeking of intense movement",
+ [IV.fearMove]:"reported fear of feet leaving the ground",
+ [IV.ears]:"reported distress at everyday sounds",
+ [IV.lights]:"reported fascination with lights and spinning objects",
+ [IV.mouths]:"reported mouthing of non-food objects",
+ [IV.force]:"reported use of excessive force in play",
+ [IV.alone]:"a reported preference for playing alone",
+ [IV.interest]:"limited reported interest in other children",
+ [IV.pretend]:"limited reported pretend play",
+ [IV.repetitive]:"reported repetitive play",
+ [IV.share]:"limited reported sharing of enjoyment"
+};
+const SPM_MAP = {
+ "Touch":               {iv:[IV.messy,IV.seekTouch], asi:["Tactile Responses"]},
+ "Balance & Motion":    {iv:[IV.seekMove,IV.fearMove], asi:["Vestibular Responses"]},
+ "Hearing":             {iv:[IV.ears], asi:[]},
+ "Vision":              {iv:[IV.lights], asi:["Visual–Ocular"]},
+ "Body Awareness":      {iv:[IV.force], asi:["Posture & Muscle Tone"]},
+ "Planning & Ideas":    {iv:[], asi:["Praxis (Motor Planning)"]},
+ "Social Participation":{iv:[IV.alone,IV.interest,IV.pretend,IV.repetitive,IV.share], asi:[]},
+ "Taste & Smell":       {iv:[IV.mouths], asi:[]}
+};
+function ivConcern(item){ const v=S.seg["iv:"+item]; if(!v) return null;
+  return INVERTED.has(item) ? (v==="Never"||v==="Rarely") : (v==="Often"||v==="Always"); }
+function ivDenies(item){ const v=S.seg["iv:"+item]; if(!v) return null;
+  return INVERTED.has(item) ? (v==="Often"||v==="Always") : (v==="Never"||v==="Rarely"); }
+function asiConcernItems(gt){ const g=ASI.find(x=>x.t===gt); if(!g) return [];
+  return g.items.filter(it=>["Mild concern","Significant concern"].includes(S.seg["asi:"+it])); }
+function asiAllTypical(gt){ const g=ASI.find(x=>x.t===gt); if(!g) return false;
+  const rated=g.items.map(it=>S.seg["asi:"+it]).filter(Boolean);
+  return rated.length>0 && rated.every(v=>v==="Typical"); }
+function scaleEvidence(sc){ const m=SPM_MAP[sc]||{iv:[],asi:[]}, ev=[];
+  m.iv.forEach(it=>{ if(ivConcern(it)) ev.push(PHRASE[it]); });
+  m.asi.forEach(gt=>{ if(asiConcernItems(gt).length) ev.push("clinical observations of "+gt.toLowerCase()); });
+  return ev; }
+function spmRanges(){ const red=[],amber=[],green=[];
+  (S.ver==="SPM"?SPM_SCALES:SPM2_SCALES).filter(s=>!s.includes("Total")).forEach(sc=>{
+    const r=interp(S.spm[sc]); if(!r||r.err) return;
+    (+S.spm[sc]>=70?red:+S.spm[sc]>=60?amber:green).push(sc); });
+  return {red,amber,green}; }
+function buildInterpretation(){
+  const {red,amber,green}=spmRanges();
+  if(!red.length&&!amber.length&&!green.length) return "";
+  const inf=($("informant").value||"caregiver").toLowerCase();
+  const low=a=>a.map(s=>s.toLowerCase());
+  let t="";
+  if(red.length) t+=`The SPM (Home Form), completed by the ${inf}, indicates significant sensory processing difficulties, particularly in ${low(red).join(", ")}. `;
+  else if(amber.length) t+=`The SPM (Home Form), completed by the ${inf}, indicates mild sensory processing differences, primarily in ${low(amber).join(", ")}. `;
+  else t+=`The SPM (Home Form), completed by the ${inf}, indicates sensory processing within the typical range across all administered areas. `;
+  if(red.length&&amber.length) t+=`Additional differences were noted in ${low(amber).join(", ")}. `;
+  [...red,...amber].forEach(sc=>{ const ev=scaleEvidence(sc);
+    if(ev.length) t+=`The ${sc.toLowerCase()} finding is reflected in ${ev.join(" and ")}. `; });
+  if(green.length&&(red.length||amber.length)) t+=`Scores in the remaining areas (${low(green).join(", ")}) fell within the typical range. `;
+  if(red.length||amber.length) t+=`These sensory processing differences may be contributing to the functional challenges reported by the family. Findings are screening-level and warrant further assessment.`;
+  return t.trim();
+}
+function mismatchCard(sc,msg,goScreen){
+  return `<div class="flag"><b>${sc} — report–findings mismatch:</b> ${msg}<br><br><button class="btn ghost" onclick="go(${goScreen})">Go to screen</button> <button class="btn ghost" onclick="this.closest('.flag').outerHTML='<div class=ok>✔ Acknowledged — both findings will be reported neutrally.</div>'">Acknowledge &amp; keep both</button></div>`;
+}
+function consistencyFlags(){
+  const fl=[];
+  Object.keys(SPM_MAP).forEach(sc=>{
+    const v=+S.spm[sc]; if(!S.spm[sc]||isNaN(v)) return;
+    const m=SPM_MAP[sc];
+    const answered=m.iv.map(ivConcern).filter(x=>x!==null);
+    const denies=m.iv.map(ivDenies).filter(Boolean).length;
+    const asiConc=m.asi.some(g=>asiConcernItems(g).length);
+    const asiTyp=m.asi.length>0 && m.asi.every(g=>asiAllTypical(g));
+    if(v>=70){
+      if((answered.length&&!answered.some(Boolean)&&denies>0&&!asiConc) || (asiTyp&&!answered.some(Boolean)&&answered.length===0))
+        fl.push(mismatchCard(sc,`SPM ${sc} is in the red range (T=${v}) but the interview/observations recorded no matching concern. The report will state both — review either entry if needed.`,3));
+    } else if(v<=59){
+      const conc=m.iv.filter(ivConcern).length;
+      if(conc>=2 || (asiConc&&conc>=1))
+        fl.push(mismatchCard(sc,`Notable ${sc.toLowerCase()} concerns were recorded in the interview/observations, but SPM ${sc} is in the typical range (T=${v}). The report will state both.`,6));
+    }
+  });
+  return fl;
+}
 /* ================= SCREEN 8 (demo logic) ================= */
 function buildReview(){
   const done=[["1 · Patient Information", $("fullname").value && $("dob").value && S.seg.sex && $("informant").value && $("tname").value && $("tmahpc").value && $("tphone").value],
@@ -677,10 +778,7 @@ function buildReview(){
     ["6 · SPM", Object.values(S.spm).some(v=>v!=="")],
     ["7 · Strengths", sel("strengths").length>0]];
   $("completeness").innerHTML=done.map(([t,ok])=>`<div class="${ok?"ok":"warn"}" style="margin-bottom:8px">${ok?"✔":"◻"} ${t} — ${ok?"complete":"not filled (will be omitted or needs entry)"}</div>`).join("");
-  const fl=[];
-  const touch=+S.spm["Touch"];
-  if(touch>=70 && S.seg["iv:Upset by messy play / clothing textures"]==="Never")
-    fl.push(`<div class="flag"><b>Report–interview mismatch:</b> SPM Touch is in the red range (T=${touch}) but the interview recorded “Never” for touch-related upset. The report will state both. <br><br><button class="btn ghost" onclick="go(3)">Go to Parent Interview</button> <button class="btn ghost" onclick="this.closest('.flag').outerHTML='<div class=ok>✔ Acknowledged — both findings will be reported neutrally.</div>'">Acknowledge &amp; keep both</button></div>`);
+  const fl=consistencyFlags();
   /* red flags can never be silently forgotten */
   const rf=sel("redflags");
   if(rf.length) fl.unshift(`<div class="flag"><b>Red flag${rf.length>1?"s":""} recorded on Screen 3:</b><br>• ${rf.join("<br>• ")}<br><br>Discuss with the family and consider referral. A referral recommendation will be included in the report. <button class="btn ghost" onclick="go(3)">Review red flags</button></div>`);
@@ -712,7 +810,7 @@ function loadSample(){
    "Parental Concern":`Parents expressed concerns primarily regarding ${sel("concerns").slice(0,2).join(" and ").toLowerCase()||"attention and daily routines"}. ${$("concerntext").value?`In their words: “${$("concerntext").value}.”`:""}`,
    "General Observation":`During the screening session, ${n} ${S.seg["gen:Separation from caregiver"]==="Separated easily"?"separated easily from the caregiver":"required time to separate from the caregiver"} and engaged with the therapy environment. Attention to activity was ${(S.seg["gen:Attention to activity"]||"variable").toLowerCase()}, and ${p} was able to follow ${(S.seg["gen:Following instructions"]||"simple").toLowerCase()} instructions.`,
    "Sensory Integration and Postural Praxis Observations (ASI Framework)":`During structured play, areas of significant concern included: ${Object.entries(S.seg).filter(([k,v])=>k.startsWith("asi:")&&v==="Significant concern").map(([k])=>k.slice(4).toLowerCase()).slice(0,3).join("; ")||"none — responses were generally age-appropriate"}. Items rated as mild concern will be monitored; “Not assessed” items are excluded from this report.`,
-   "Interpretation":`The SPM results indicate ${Object.entries(S.spm).filter(([k,v])=>+v>=70).map(([k])=>k.toLowerCase()).join(", ")?`significant sensory processing difficulties, particularly in ${Object.entries(S.spm).filter(([k,v])=>+v>=70).map(([k])=>k.toLowerCase()).join(", ")}`:"largely typical sensory processing, with selected areas to monitor"}. These findings were interpreted alongside the caregiver interview and clinical observation, and are likely contributing to the functional challenges reported.`,
+   "Interpretation":buildInterpretation()||"The SPM was not administered during this screening.",
    "Child's Strengths":sel("strengths").map(s=>"• "+s).join("\n")||"• (select strengths on Screen 7)",
    "Summary":`Based on caregiver report, SPM findings, and screening-level clinical observations, ${n} presents with a profile of strengths in ${sel("strengths")[0]?.toLowerCase()||"engagement"} alongside challenges affecting daily participation. Findings are preliminary and screening-level.`,
    "Recommendation":`• Occupational therapy intervention focusing on the areas identified above\n• Collaboration with caregivers${$("school").value&&$("school").value!=="Not yet schooling"?" and school":""} for consistent strategies\n• Use of ${sel("interests")[0]?.toLowerCase()||"the child's interests"} as motivating activities within intervention${sel("redflags").length?"\n• Discussion with the family regarding the concern(s) noted during screening, with referral to the appropriate medical practitioner or support service":""}`
@@ -820,6 +918,10 @@ function go(n){
   $("backbtn").style.visibility=n===1?"hidden":"visible";
   $("nextbtn").style.display=n===10?"none":"inline-block";
   if(n===8) buildReview();
+  if(n===9 && !S.secs["Interpretation"]){        // M5: rule-based draft, no AI needed
+    const auto=buildInterpretation();
+    if(auto){ S.secs["Interpretation"]=auto; buildSections(); }
+  }
   if(n===10){ buildReport(); updateExport(); }
   window.scrollTo(0,0);
 }

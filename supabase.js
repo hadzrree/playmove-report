@@ -4,6 +4,10 @@
 // 3. In Supabase Auth settings, add your GitHub Pages URL to the allowed redirect URLs.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
+// Set to true for pilot deployments that should open the report generator without login.
+// Set to false to require Supabase email/password authentication.
+export const PILOT_MODE = false;
+
 // Public browser-safe Supabase project URL.
 export const SUPABASE_URL = "https://dozwsicxriyxtjvtntfy.supabase.co";
 

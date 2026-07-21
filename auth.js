@@ -1,5 +1,5 @@
 // Authentication behavior shared by the protected report and the auth pages.
-import { supabase, hasSupabaseConfig } from "./supabase.js";
+import { PILOT_MODE, supabase, hasSupabaseConfig } from "./supabase.js";
 
 // Read the page mode from the script tag so this file can be reused without build tools.
 const scriptTag = [...document.scripts].find((script) => script.src.endsWith("/auth.js") || script.src.endsWith("auth.js"));
@@ -20,6 +20,8 @@ function setAuthMessage(message, isError = false) {
 
 // Redirect unauthenticated visitors away from the report generator.
 async function protectReportGenerator() {
+  if (PILOT_MODE) return;
+
   if (!hasSupabaseConfig()) {
     document.body.innerHTML = `<main style="max-width:720px;margin:40px auto;padding:24px;font-family:'Segoe UI',system-ui,-apple-system,sans-serif">
       <div style="background:#FFF4E5;border:1px solid #ED7D31;border-radius:12px;padding:18px;color:#8A4B00">
@@ -38,6 +40,11 @@ async function protectReportGenerator() {
 
 // Send authenticated users away from login/signup and into the report generator.
 async function redirectIfAlreadyLoggedIn() {
+  if (PILOT_MODE) {
+    window.location.replace(pageUrl("index.html"));
+    return;
+  }
+
   if (!hasSupabaseConfig()) {
     setAuthMessage("Update supabase.js with your Supabase URL and anon key before signing in.", true);
     return;
@@ -49,6 +56,8 @@ async function redirectIfAlreadyLoggedIn() {
 
 // Wire the login form to Supabase email/password sign-in.
 function initLoginForm() {
+  if (PILOT_MODE) return;
+
   const form = document.querySelector("[data-login-form]");
   if (!form) return;
   form.addEventListener("submit", async (event) => {
@@ -69,6 +78,8 @@ function initLoginForm() {
 
 // Wire the signup form to Supabase email/password registration.
 function initSignupForm() {
+  if (PILOT_MODE) return;
+
   const form = document.querySelector("[data-signup-form]");
   if (!form) return;
   form.addEventListener("submit", async (event) => {
@@ -92,6 +103,11 @@ function initSignupForm() {
 function initLogoutButton() {
   const logoutButton = document.getElementById("logoutbtn");
   if (!logoutButton) return;
+
+  if (PILOT_MODE) {
+    logoutButton.hidden = true;
+    return;
+  }
   logoutButton.addEventListener("click", async () => {
     logoutButton.disabled = true;
     logoutButton.textContent = "Logging out…";
@@ -101,10 +117,12 @@ function initLogoutButton() {
 }
 
 // Keep every open tab in sync when Supabase restores, refreshes, or clears sessions.
-supabase.auth.onAuthStateChange((event, session) => {
-  if (pageMode === "protected" && !session) window.location.replace(pageUrl("login.html"));
-  if ((pageMode === "login" || pageMode === "signup") && session) window.location.replace(pageUrl("index.html"));
-});
+if (!PILOT_MODE) {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (pageMode === "protected" && !session) window.location.replace(pageUrl("login.html"));
+    if ((pageMode === "login" || pageMode === "signup") && session) window.location.replace(pageUrl("index.html"));
+  });
+}
 
 if (pageMode === "protected") {
   protectReportGenerator();

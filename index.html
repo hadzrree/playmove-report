@@ -301,7 +301,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <div id="toasts" aria-live="polite"></div>
 <footer class="note">
   <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
-  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.2.0 (M2)</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.3.0 (M3)</span>
 </footer>
 
 <script>
@@ -316,14 +316,59 @@ const CONCERNS = ["Speech & communication","Behaviour & tantrums","Attention & f
 const HOPES = ["Communicate better","Play with other children","Calmer behaviour","Independence in self-care","Ready for school","Better focus"];
 const FREQ = ["Never","Rarely","Sometimes","Often","Always"];
 const NEONATAL = ["NICU admission","Jaundice","Respiratory distress","Infection","Feeding difficulty","Birth trauma"];
+/* Full interview bank per docs/05 — items are strings (rating rows) or objects:
+   {q, opts} own scale · {q, chips, id, other} chip list · {q, opts, textOn, textId, ph} conditional text */
 const DOMAINS = [
- {t:"Birth & Early History", opts:["Yes","No","Don't know"], items:["Was the pregnancy uncomplicated?","Was the baby born at full term (37 weeks or later)?","Did the baby have any problems after birth?"]},
- {t:"Developmental Milestones", items:["Walked independently (by ~18 m)","First words (by ~16 m)","Two-word phrases (by ~24 m)","Toilet trained day (by ~3½ y)"], opts:["On time","Delayed","Not yet","Unsure"]},
- {t:"Daily Routines", items:["Accepts a variety of food textures","Mealtime is a struggle","Falls asleep within ~30 min","Tolerates tooth-brushing / hair-cutting"]},
- {t:"Sensory Behaviours", items:["Upset by messy play / clothing textures","Seeks intense movement (spin, jump, crash)","Covers ears at everyday sounds","Uses too much force","Overwhelmed in busy places (mall, kenduri)"]},
- {t:"Play & Social", items:["Prefers to play alone","Engages in pretend play","Play is repetitive / lines up toys","Shares enjoyment (shows, points)"]},
- {t:"Behaviour & Regulation", items:["Intense tantrums, hard to settle","Copes with changes in routine","Safety concern (runs off, climbs)"]}
+ {t:"Birth & Early History", opts:["Yes","No","Don't know"], items:[
+   "Was the pregnancy uncomplicated?",
+   "Was the baby born at full term (37 weeks or later)?",
+   {q:"Birth weight", opts:["Normal (≥2.5 kg)","Low (<2.5 kg)","Unsure"]},
+   "Did the baby have any problems after birth?"]},
+ {t:"Developmental Milestones", opts:["On time","Delayed","Not yet","Unsure"], items:[
+   "Sat without support (typically by ~9 months)",
+   "Walked independently (typically by ~18 months)",
+   "First single words (typically by ~16 months)",
+   "Two-word phrases (typically by ~24 months)",
+   "Fed self with spoon (typically by ~24 months)",
+   "Toilet trained — day (typically by ~3½ years)"]},
+ {t:"Medical History", items:[
+   {q:"Ongoing medical conditions", chips:["Epilepsy","Asthma","Hearing concern","Vision concern","None"], id:"medcond", other:true},
+   {q:"Hearing tested before?", opts:["Yes — normal","Yes — concern found","Never tested","Unsure"]},
+   {q:"Vision tested before?", opts:["Yes — normal","Yes — concern found","Never tested","Unsure"]},
+   {q:"Current medications / supplements", opts:["None","Yes"], textOn:"Yes", textId:"medtext", ph:"Name of medication / supplement"},
+   {q:"Previous therapy received", chips:["Occupational therapy","Speech therapy","Physiotherapy","Early intervention programme","None"], id:"prevtherapy", other:true}]},
+ {t:"Daily Routines", items:[
+   "Accepts a variety of food textures",
+   "Mealtime is a struggle (refusal, leaving the table, distress)",
+   "Tolerates changing clothes",
+   "Falls asleep within ~30 minutes",
+   "Sleeps through the night",
+   "Tolerates tooth-brushing, hair-cutting and nail-cutting"]},
+ {t:"Sensory Behaviours", items:[
+   "Upset by messy play, clothing textures or light touch",
+   "Seeks touch — touches people or objects constantly, craves tight hugs",
+   "Seeks intense movement — spinning, jumping, climbing, crashing",
+   "Fearful of feet leaving the ground, swings or stairs",
+   "Covers ears or distressed at everyday sounds (blender, hand dryer, crowds)",
+   "Fascinated by lights, spinning objects, or watching from the corner of the eye",
+   "Mouths or chews non-food objects",
+   "Uses too much force — presses hard, breaks toys, hugs too tightly",
+   "Overwhelmed in busy places (shopping malls, kenduri, playgrounds)"]},
+ {t:"Play & Social", items:[
+   "Prefers to play alone rather than with other children",
+   "Shows interest in other children (watches, approaches)",
+   "Engages in pretend play (feeding a doll, cooking, driving)",
+   "Play is repetitive (same toy, same way, lining up, spinning wheels)",
+   "Shares enjoyment (shows toys, points to share interest)"]},
+ {t:"Behaviour & Regulation", items:[
+   "Tantrums that are intense or hard to settle",
+   "Copes with changes in routine",
+   "Can wait or take turns with support",
+   "Safety concern present (runs off in public, climbs dangerously)",
+   {q:"What helps calm the child?", chips:["Carried / hugged","Quiet space","Screen","Music","Favourite object","Movement"], id:"calmchips", other:true}]}
 ];
+const COMM=["Verbal sentences","Single words","Vocalisations","Gestures / pointing","Echolalia noted","Led adult by hand"];
+const PLAYQ=["Pretend play seen","Repetitive play","Lines up toys","Explores varied toys"];
 const GENOBS = [
  ["Separation from caregiver",["Separated easily","Reluctant, settled","Distressed"]],
  ["Eye contact",["Consistent","Fleeting","Rare","Avoided"]],
@@ -477,22 +522,43 @@ chips("langs",LANGS); chips("dxchips",DX); chips("concerns",CONCERNS,true); chip
 chips("strengths",STRENGTHS,true); chips("interests",INTERESTS,true);
 seg($("sexseg"),"sex"); seg($("dxseg"),"dx");
 PART.forEach(p=>segRow($("partrows"),p,PARTOPTS,"part:"+p));
+const pendingChips=[];
 DOMAINS.forEach(d=>{
   const det=document.createElement("details"); det.className="domain";
   det.innerHTML=`<summary><span class="dot"></span>${d.t}</summary><div class="body"></div>`;
   const body=det.querySelector(".body");
   d.items.forEach(it=>{
-    if(it==="Did the baby have any problems after birth?"){
-      segRow(body,it,d.opts||FREQ,"iv:"+it,true,null,v=>{$("neonatal").style.display=(v==="Yes")?"block":"none";});
-      const nd=document.createElement("div"); nd.id="neonatal"; nd.style.cssText="display:none; padding:8px 0 4px";
-      nd.innerHTML=`<div class="hint" style="margin-bottom:6px">Select all that apply:</div><div class="chips" id="neochips"></div>`;
-      body.appendChild(nd);
-    } else segRow(body,it,d.opts||FREQ,"iv:"+it);
+    if(typeof it==="string"){
+      if(it==="Did the baby have any problems after birth?"){
+        segRow(body,it,d.opts||FREQ,"iv:"+it,true,null,v=>{$("neonatal").style.display=(v==="Yes")?"block":"none";});
+        const nd=document.createElement("div"); nd.id="neonatal"; nd.style.cssText="display:none; padding:8px 0 4px";
+        nd.innerHTML=`<div class="hint" style="margin-bottom:6px">Select all that apply:</div><div class="chips" id="neochips"></div>`;
+        body.appendChild(nd);
+      } else segRow(body,it,d.opts||FREQ,"iv:"+it);
+    } else if(it.chips){
+      const w=document.createElement("div"); w.className="rowline"; w.style.display="block";
+      w.innerHTML=`<div class="lbl" style="max-width:100%;margin-bottom:8px">${it.q}</div><div class="chips" id="${it.id}"></div>`;
+      body.appendChild(w);
+      pendingChips.push([it.id, it.chips, !!it.other]);
+    } else if(it.textOn){
+      segRow(body,it.q,it.opts,"iv:"+it.q,true,null,v=>{$(it.textId).style.display=(v===it.textOn)?"block":"none";});
+      const ti=document.createElement("input"); ti.id=it.textId; ti.placeholder=it.ph||"";
+      ti.style.cssText="display:none;margin:6px 0;width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;";
+      body.appendChild(ti);
+    } else segRow(body,it.q,it.opts||d.opts||FREQ,"iv:"+it.q);
   });
   $("domains").appendChild(det);
 });
 chips("neochips",NEONATAL,true);
+pendingChips.forEach(([id,list,o])=>chips(id,list,o));
 GENOBS.forEach(([l,o])=>segRow($("genobs"),l,o,"gen:"+l));
+/* Screen 4 chip items (bank Part A: A6 communication, A8 play quality) */
+[["Communication observed",COMM,"commchips"],["Play quality",PLAYQ,"playqual"]].forEach(([q,list,id])=>{
+  const w=document.createElement("div"); w.className="rowline"; w.style.display="block";
+  w.innerHTML=`<div class="lbl" style="max-width:100%;margin-bottom:8px">${q}</div><div class="chips" id="${id}"></div>`;
+  $("genobs").appendChild(w);
+  chips(id,list,true);
+});
 ASI.forEach(g=>{
   const c=document.createElement("div"); c.className="card"; c.innerHTML=`<h3>${g.t}</h3>`;
   g.items.forEach(it=>segRow(c,it,ASIOPTS,"asi:"+it,true,ASICOLORS));

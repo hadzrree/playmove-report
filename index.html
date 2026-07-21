@@ -110,13 +110,23 @@ td.interp{font-weight:600; min-width:170px;}
 .fielderr{color:#B03A2E; font-size:11.5px; display:none;}
 nav.stepper button.part{border-bottom-color:var(--yellow); color:var(--navy);}
 footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line); padding:8px 24px; font-size:12px; color:var(--muted); display:flex; justify-content:space-between; z-index:60;}
+.printfoot{display:none;}
+@page{ size:A4; margin:12mm 0 18mm; }
 @media print{
   *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important;}
-  body *{visibility:hidden;}
-  #printArea, #printArea *{visibility:visible;}
-  #printArea{position:absolute; top:0; left:0; width:100%;}
-  .page{box-shadow:none; margin:0; width:100%; outline-offset:-10px;}
-  .reportwrap{background:#fff; padding:0;}
+  /* hide the app chrome; show only the report, in normal flow (respects @page margins) */
+  header.app, nav.stepper, #draftbar, #childbar, .navbtns, footer.note, #toasts,
+  .screen:not(#s10){ display:none !important; }
+  #s10 > *:not(.reportwrap){ display:none !important; }
+  main{ max-width:none; padding:0; }
+  .reportwrap{ background:#fff; padding:0; }
+  #printArea{ position:static; }
+  .page{ box-shadow:none; margin:0; width:100%; outline:none; padding:0 16mm; }
+  /* pagination fidelity */
+  .rpt h4{ break-after:avoid; page-break-after:avoid; }
+  .rpt table, .rpt tr{ break-inside:avoid; page-break-inside:avoid; }
+  .rpt p, .rpt li{ orphans:2; widows:2; }
+  .cpybar{ break-after:avoid; }
 }
 @media (max-width:640px){
   .grid{grid-template-columns:1fr;}
@@ -323,7 +333,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <div id="toasts" aria-live="polite"></div>
 <footer class="note">
   <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
-  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.6.0 (M6)</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.7.0 (M7)</span>
 </footer>
 
 <script>
@@ -735,12 +745,13 @@ function spmRanges(){ const red=[],amber=[],green=[];
 function buildInterpretation(){
   const {red,amber,green}=spmRanges();
   if(!red.length&&!amber.length&&!green.length) return "";
-  const inf=($("informant").value||"caregiver").toLowerCase();
+  const infRaw=($("informant").value||"caregiver").toLowerCase();
+  const inf=infRaw.startsWith("both")?infRaw:"the "+infRaw;
   const low=a=>a.map(s=>s.toLowerCase());
   let t="";
-  if(red.length) t+=`The SPM (Home Form), completed by the ${inf}, indicates significant sensory processing difficulties, particularly in ${low(red).join(", ")}. `;
-  else if(amber.length) t+=`The SPM (Home Form), completed by the ${inf}, indicates mild sensory processing differences, primarily in ${low(amber).join(", ")}. `;
-  else t+=`The SPM (Home Form), completed by the ${inf}, indicates sensory processing within the typical range across all administered areas. `;
+  if(red.length) t+=`The SPM (Home Form), completed by ${inf}, indicates significant sensory processing difficulties, particularly in ${low(red).join(", ")}. `;
+  else if(amber.length) t+=`The SPM (Home Form), completed by ${inf}, indicates mild sensory processing differences, primarily in ${low(amber).join(", ")}. `;
+  else t+=`The SPM (Home Form), completed by ${inf}, indicates sensory processing within the typical range across all administered areas. `;
   if(red.length&&amber.length) t+=`Additional differences were noted in ${low(amber).join(", ")}. `;
   [...red,...amber].forEach(sc=>{ const ev=scaleEvidence(sc);
     if(ev.length) t+=`The ${sc.toLowerCase()} finding is reflected in ${ev.join(" and ")}. `; });
@@ -1071,7 +1082,7 @@ function buildReport(){
     if(!r||r.err) return `<tr><td style="${bold}">${sc}</td><td>—</td><td style="color:#777">Not administered</td></tr>`;
     return `<tr><td style="${bold}">${sc}</td><td style="${bold}">${S.spm[sc]}</td><td style="background:${r.bg};color:${r.fg};font-weight:600">${S.ver==="SPM"?r.lbl:r.lbl2}</td></tr>`;
   }).join("");
-  const dxtext = S.seg.dx==="Diagnosed" ? ([...S.chips["dxchips"]].join(", ")+($("dxother").value?" — "+$("dxother").value:"")) : ($("dxother").value||"");
+  const dxtext = (S.seg.dx==="Diagnosed" ? [[...(S.chips["dxchips"]||[])].join(", "), $("dxother").value].filter(Boolean) : (S.seg.dx==="Under assessment"?["Under assessment"]:[])).join(" — ");
   $("reportpage").innerHTML=`
     <div class="cpybar">Copyright© 2026 Playmove Therapy for Children OT Report</div>
     <img class="rlogo" src="${LOGO}" alt="PlayMove">

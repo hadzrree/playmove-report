@@ -293,7 +293,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 
 <footer class="note">
   <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
-  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.1.0 (M1)</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.1.1 (M1)</span>
 </footer>
 
 <script>
@@ -754,8 +754,14 @@ window.addEventListener("afterprint",()=>{
   clearDraft(); dirty=false;
   $("saveinfo").textContent="Report exported — draft cleared. New changes will start a new draft.";
 });
+/* save instantly when the app is closed or backgrounded — the "Leave site?"
+   dialog now only appears if that last-second save itself fails */
 window.addEventListener("beforeunload",e=>{
-  if(dirty){ e.preventDefault(); e.returnValue=""; }   // autosaved work closes silently
+  if(dirty){ clearTimeout(saveTimer); saveDraft(); }
+  if(dirty){ e.preventDefault(); e.returnValue=""; }   // save failed — warn
+});
+document.addEventListener("visibilitychange",()=>{     // iPad Safari safety net
+  if(document.visibilityState==="hidden" && dirty){ clearTimeout(saveTimer); saveDraft(); }
 });
 go(1);
 </script>

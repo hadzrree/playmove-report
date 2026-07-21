@@ -282,12 +282,14 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <p class="sub">Copy the prompt → paste it into your preferred AI assistant (e.g. ChatGPT, Claude, Gemini, Microsoft Copilot or others) → paste the reply back. The prompt uses “[Child]” — no name, IC or DOB ever leaves this app.</p>
   <div class="card">
     <div class="prompthdr">
-      <button class="btn primary" onclick="copyPrompt()">📋 Copy Prompt</button>
-      <button class="btn ghost" onclick="toast('The full prompt would open here for you to inspect — proving no identifiable data is included. Real prompt arrives in Milestone 6.', false)">View prompt</button>
-      <button class="btn accent" onclick="loadSample()">Load sample narrative (mockup demo)</button>
+      <button class="btn primary" onclick="copyPrompt()">📋 Copy prompt</button>
+      <button class="btn ghost" onclick="viewPrompt()">👁 View prompt</button>
+      <button class="btn accent" onclick="ruleDraft()">✨ Generate draft (no AI needed)</button>
     </div>
-    <p class="hint" style="margin-top:8px">In the real app you would paste the AI assistant's reply below; it is parsed into the sections and “[Child]” becomes the preferred name locally. You may further refine any section using your preferred AI assistant.</p>
+    <p class="hint" style="margin-top:8px">Paste the AI assistant's reply below and press Insert. “[Child]” becomes the preferred name locally, sections are filled, and the reply is checked for diagnostic language. No name, IC or DOB is ever in the prompt.</p>
     <textarea id="pastebox" style="width:100%; margin-top:10px; border:1.5px dashed var(--line); border-radius:9px; padding:10px; min-height:64px; font-family:inherit;" placeholder="Paste the AI assistant's reply here…"></textarea>
+    <button class="btn primary" style="margin-top:8px" onclick="insertReply()">Insert AI reply →</button>
+    <div id="genstatus" style="margin-top:10px"></div>
   </div>
   <div class="warn">AI text is a draft. All clinical interpretation remains yours — review every section before continuing.</div>
   <div id="sections"></div>
@@ -298,6 +300,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <h2 class="title">10 · Preview PDF</h2>
   <p class="sub">Exact template preview. Tick the sign-off to enable export.</p>
   <div id="consentwarn" class="flag" style="display:none">Parent/guardian consent has not been recorded on Screen 1 — export is disabled until it is. <button class="btn ghost" onclick="go(1)">Go to consent</button></div>
+  <div id="dxwarn10" class="flag" style="display:none"><b>Diagnostic language detected.</b> A section contains a possible diagnosis. Export is blocked — return to Generate Report and reword it. <button class="btn ghost" onclick="go(9)">Go to Screen 9</button></div>
   <div class="signoff">
     <input type="checkbox" id="signoff" style="width:18px;height:18px;margin-top:2px" onchange="updateExport()">
     <label for="signoff" style="font-size:13.5px">I have reviewed this report and it reflects my clinical findings.</label>
@@ -320,7 +323,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <div id="toasts" aria-live="polite"></div>
 <footer class="note">
   <span id="saveinfo">Draft autosaves on this device · The exported PDF is the record.</span>
-  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.5.0 (M5)</span>
+  <span><button id="discardbtn" style="border:0;background:none;color:var(--coral);cursor:pointer;font-size:12px;text-decoration:underline" onclick="discardDraft(true)">Discard draft</button> · PlayMove Therapy for Children · v1.6.0 (M6)</span>
 </footer>
 
 <script>
@@ -784,26 +787,219 @@ function buildReview(){
   if(rf.length) fl.unshift(`<div class="flag"><b>Red flag${rf.length>1?"s":""} recorded on Screen 3:</b><br>• ${rf.join("<br>• ")}<br><br>Discuss with the family and consider referral. A referral recommendation will be included in the report. <button class="btn ghost" onclick="go(3)">Review red flags</button></div>`);
   if(!$("consentchk").checked) fl.push(`<div class="qcard"><span class="src">Consent pending</span><p style="margin:6px 0">Parent/guardian consent has not been ticked on Screen 1. You can continue preparing the report, but export will be blocked until consent is recorded.</p><button class="btn ghost" onclick="go(1)">Go to consent</button></div>`);
   $("flags").innerHTML = fl.length?fl.join(""):`<div class="ok">✔ No contradictions detected between interview, observation and SPM entries.</div>`;
-  $("fups").innerHTML =
-   `<p class="hint" style="margin-bottom:10px">Before writing, the app checks whether anything the report needs is missing. If so, it suggests at most TWO follow-ups — each tells you <b>what is missing</b>, <b>why it matters for this report</b>, and <b>what to do next</b>. Answer while the family is still with you, or dismiss if not relevant.</p>
-    <div class="qcard"><span class="src">Ask the parent · files to Daily Routines</span>
-      <p style="margin:6px 0"><b>Missing:</b> No grooming-tolerance history recorded (tooth-brushing, hair-washing, nail-cutting).</p>
-      <p style="margin:6px 0"><b>Why it matters:</b> Touch was flagged in your entries — without a daily-routine example, the Interpretation section cannot link the score to real home life.</p>
-      <p style="margin:6px 0"><b>Next step:</b> Ask now: “Does ${childName()} tolerate tooth-brushing and hair-washing at home?”</p>
-      <button class="btn ghost" onclick="this.parentElement.innerHTML='<span class=src>Answered</span> ✔ Recorded to Daily Routines.'">Answer now</button> <button class="btn ghost" onclick="this.parentElement.remove()">Dismiss</button></div>
-    <div class="qcard"><span class="src">Observe before the child leaves · files to Bilateral Integration &amp; Midline</span>
-      <p style="margin:6px 0"><b>Missing:</b> Hand preference was not rated on Screen 5.</p>
-      <p style="margin:6px 0"><b>Why it matters:</b> Hand preference supports the bilateral-integration picture in the ASI section; leaving it blank weakens that paragraph.</p>
-      <p style="margin:6px 0"><b>Next step:</b> Offer a crayon or spoon at midline and note which hand ${childName()} uses, then rate the item.</p>
-      <button class="btn ghost" onclick="this.parentElement.innerHTML='<span class=src>Answered</span> ✔ Recorded to Bilateral Integration &amp; Midline.'">Answer now</button> <button class="btn ghost" onclick="this.parentElement.remove()">Dismiss</button></div>
-    <p class="hint">Never more than two questions — and only when information is genuinely insufficient.</p>`;
+  const fups=buildFollowups();
+  let html=`<p class="hint" style="margin-bottom:10px">Before writing, the app checks whether anything the report needs is missing. It suggests at most TWO follow-ups — each shows <b>what is missing</b>, <b>why it matters</b>, and <b>what to do next</b>. Answer while the family is still with you, or dismiss if not relevant.</p>`;
+  if(!fups.length) html+=`<div class="ok">✔ No information gaps detected — you have enough to generate the report.</div>`;
+  else html+=fups.map(f=>`<div class="qcard"><span class="src">${f.src}</span>
+      <p style="margin:6px 0"><b>Missing:</b> ${f.gap}</p>
+      <p style="margin:6px 0"><b>Why it matters:</b> ${f.why}</p>
+      <p style="margin:6px 0"><b>Next step:</b> ${f.next}</p>
+      <button class="btn ghost" onclick="go(${f.screen})">Go there</button> <button class="btn ghost" onclick="this.parentElement.remove()">Dismiss</button></div>`).join("");
+  html+=`<p class="hint">Never more than two questions — and only when information is genuinely insufficient.</p>`;
+  $("fups").innerHTML=html;
+}
+function buildFollowups(){
+  const n=childName(), c=[];
+  Object.keys(SPM_MAP).forEach(sc=>{ const v=+S.spm[sc];
+    if(S.spm[sc] && !isNaN(v) && v>=70 && scaleEvidence(sc).length===0)
+      c.push({src:"Ask the parent · Parent Interview", screen:3,
+        gap:`SPM ${sc} is in the red range (T=${v}) but no matching concern was recorded in the interview or observations.`,
+        why:"The Interpretation cannot link this score to daily life without a supporting example.",
+        next:`Ask the family for a specific everyday example related to ${sc.toLowerCase()}.`}); });
+  if(+S.spm["Touch"]>=70 && !S.seg["iv:Tolerates tooth-brushing, hair-cutting and nail-cutting"])
+    c.push({src:"Ask the parent · Daily Routines", screen:3,
+      gap:"No grooming-tolerance history recorded (tooth-brushing, hair-cutting, nail-cutting).",
+      why:"Touch is elevated — a grooming example grounds the finding in home life.",
+      next:`Ask: “Does ${n} tolerate tooth-brushing and hair-washing at home?”`});
+  if(!S.seg["asi:Hand preference emerging or established as expected for age"])
+    c.push({src:"Observe before the child leaves · Bilateral Integration & Midline", screen:5,
+      gap:"Hand preference was not rated on Screen 5.",
+      why:"It supports the bilateral-integration picture; leaving it blank weakens that paragraph.",
+      next:`Offer a crayon at midline and note which hand ${n} uses, then rate the item.`});
+  const ears=S.seg["iv:Covers ears or distressed at everyday sounds (blender, hand dryer, crowds)"];
+  if((ears==="Often"||ears==="Always") && !S.spm["Hearing"])
+    c.push({src:"Consider · Medical History / referral", screen:3,
+      gap:"The family reported distress at everyday sounds, but hearing history is unconfirmed.",
+      why:"An auditory concern may warrant audiology referral rather than OT alone.",
+      next:`Confirm whether ${n}'s hearing has been formally tested.`});
+  return c.slice(0,2);
 }
 
 /* ================= SCREEN 9 ================= */
 function childName(){ return $("prefname").value || $("fullname").value.split(" ")[0] || "[Child]"; }
 function pronoun(){ return S.seg.sex==="Female"?["she","her"]:["he","his"]; }
-function copyPrompt(){ toast("Mockup: the structured prompt (with [Child] placeholders, no name/IC/DOB) is copied, ready for your preferred AI assistant. Real prompt arrives in Milestone 6.", false); }
-function loadSample(){
+/* ================= M6 — AI PIPELINE (docs/08) =================
+   Prompt builder (privacy-safe), reply parser, local placeholder
+   substitution, and the four post-generation checks. The diagnosis
+   -language scan blocks export until the therapist rewords.        */
+
+/* ---- gather structured input as readable, de-identified lines ---- */
+function ivLabel(it){ return typeof it==="string"?it:it.q; }
+function collectClinicalData(){
+  const [subj, poss]=pronoun(), L=[];
+  const add=(h,body)=>{ if(body&&body.length) L.push("### "+h+"\n"+body); };
+  // demographics (de-identified)
+  const demo=[`Age: ${$("age").value||"unknown"}`,`Sex: ${S.seg.sex||"unknown"} (use ${subj}/${poss})`];
+  if(sel("langs").length) demo.push("Languages at home: "+sel("langs").join(", "));
+  if($("school").value) demo.push("Schooling: "+$("school").value+($("schoolname").value?" ([School])":""));
+  if($("refsrc").value) demo.push("Referral source: "+$("refsrc").value);
+  if(S.seg.dx) demo.push("Diagnostic status (referrer-given, attribute in text): "+S.seg.dx+
+    (S.seg.dx==="Diagnosed"?" — "+([...(S.chips["dxchips"]||[])].join(", ")+($("dxother").value?" "+$("dxother").value:"")):""));
+  if($("informant").value) demo.push("Information obtained from: "+$("informant").value);
+  add("Child & referral", demo.join("\n"));
+  // occupational profile
+  const part=PART.map(p=>{const v=S.seg["part:"+p]; return v?`- ${p}: ${v}`:null;}).filter(Boolean);
+  add("Participation in daily occupations", part.join("\n"));
+  if(sel("concerns").length||$("concerntext").value) add("Family concerns",
+    (sel("concerns").length?"- "+sel("concerns").join("\n- "):"")+
+    ($("concerntext").value?`\nParent's words: "${$("concerntext").value}"`:"")+
+    ($("condur").value?`\nDuration: ${$("condur").value}`:""));
+  if(sel("hopes").length) add("Family hopes for therapy","- "+sel("hopes").join("\n- "));
+  // interview (answered only)
+  const iv=[];
+  DOMAINS.forEach(d=>{ const rows=d.items.map(it=>{
+    const q=ivLabel(it), v=S.seg["iv:"+q]; if(!v) return null; return `- ${q}: ${v}`;
+  }).filter(Boolean);
+    // chip sub-items
+    const extra=[];
+    if(d.t==="Medical History"){ if(sel("medcond").length) extra.push("- Ongoing conditions: "+sel("medcond").join(", "));
+      if($("medtext").value) extra.push("- Medication: "+$("medtext").value);
+      if(sel("prevtherapy").length) extra.push("- Previous therapy: "+sel("prevtherapy").join(", ")); }
+    if(d.t==="Behaviour & Regulation" && sel("calmchips").length) extra.push("- Calms with: "+sel("calmchips").join(", "));
+    if(d.t==="Birth & Early History" && sel("neochips").length) extra.push("- Problems after birth: "+sel("neochips").join(", "));
+    if(rows.length||extra.length) iv.push(`**${d.t}**\n`+rows.concat(extra).join("\n"));
+  });
+  add("Parent interview (report only what is listed)", iv.join("\n\n"));
+  // red flags
+  if(sel("redflags").length) add("Red flags recorded (recommend referral, do NOT interpret)","- "+sel("redflags").join("\n- "));
+  // general observation
+  const gen=GENOBS.map(([l])=>{const v=S.seg["gen:"+l]; return v?`- ${l}: ${v}`:null;}).filter(Boolean);
+  if(sel("commchips").length) gen.push("- Communication observed: "+sel("commchips").join(", "));
+  if(sel("playqual").length) gen.push("- Play quality: "+sel("playqual").join(", "));
+  if($("gennote").value) gen.push("- Note: "+$("gennote").value);
+  add("General observation in session", gen.join("\n"));
+  // ASI — concern items only; typical summarised
+  const asi=[];
+  ASI.forEach(g=>{ const conc=g.items.filter(it=>["Mild concern","Significant concern"].includes(S.seg["asi:"+it]))
+      .map(it=>`- ${it} (${S.seg["asi:"+it]})`);
+    if(conc.length) asi.push(`**${g.t}**\n`+conc.join("\n")); });
+  const typicalGroups=ASI.filter(g=>asiAllTypical(g.t)).map(g=>g.t);
+  add("ASI clinical observations (elaborate concerns only; do not mention 'Not assessed')",
+    asi.join("\n\n")+(typicalGroups.length?`\n\nAge-appropriate / typical groups (summarise positively in one sentence): ${typicalGroups.join(", ")}`:""));
+  // SPM
+  const scales=(S.ver==="SPM"?SPM_SCALES:SPM2_SCALES);
+  const spm=scales.map(sc=>{const r=interp(S.spm[sc]); if(!r||r.err) return null;
+    return `- ${sc}: T=${S.spm[sc]} (${S.ver==="SPM"?r.lbl:r.lbl2})`;}).filter(Boolean);
+  add(`SPM results (${S.ver}) — completed by ${($("informant").value||"caregiver")}`, spm.join("\n"));
+  // strengths/interests
+  if(sel("strengths").length) add("Strengths (bullet list in report)","- "+sel("strengths").join("\n- "));
+  if(sel("interests").length) add("Interests (use as motivators in recommendations)","- "+sel("interests").join(", "));
+  return L.join("\n\n");
+}
+
+/* ---- the prompt (rules embedded per docs/08) ---- */
+function buildPrompt(){
+  return `You are helping a paediatric Occupational Therapist in Malaysia draft the narrative of an INITIAL SCREENING report from structured input. Write in professional, warm, plain British/Malaysian English.
+
+NON-NEGOTIABLE RULES
+1. Write ONLY from the data below. Never invent an observation, history, score or behaviour. If a section has no data, write one short neutral sentence or omit it.
+2. NEVER diagnose. Never state or imply that findings indicate, confirm, are consistent with, are suggestive of, or meet criteria for any condition (autism, ADHD, sensory processing disorder, etc.). A referrer-given diagnosis may be RESTATED but must be attributed (e.g. "According to the referring paediatrician, ...").
+3. This is a SCREENING, not an assessment — keep language provisional. Use hedged verbs (suggests, may reflect, appears to, was observed to). Avoid: proves, confirms, clearly shows, is diagnostic of.
+4. Refer to the child only as [Child]; use ${pronoun()[0]}/${pronoun()[1]} pronouns. Any school is [School]. Attribute parent-reported information ("the mother reported...").
+5. Keep each section to 2–5 sentences (Summary ≤ 150 words). Lead the Summary with strengths.
+
+Return the narrative under these EXACT headings, in this order, nothing else:
+## Occupational Profile of a Child
+## Parental Concern
+## General Observation
+## Sensory Integration and Postural Praxis Observations (ASI Framework)
+## Interpretation
+## Child's Strengths
+## Summary
+## Recommendation
+If any needed information is missing, do not invent it — list what is missing at the very end under:
+## Missing Information
+
+STRUCTURED INPUT
+${collectClinicalData()}`;
+}
+
+/* ---- privacy proof: confirm no identifiers in the prompt ---- */
+function promptLeaks(txt){
+  const bad=[];
+  [["full name",$("fullname").value],["preferred name",$("prefname").value],
+   ["IC",$("ic").value],["contact",$("cgphone").value],["therapist phone",$("tphone").value],
+   ["school name",$("schoolname").value],["caregiver name",$("cgname").value],["consent name",$("consname").value]]
+   .forEach(([lbl,val])=>{ val=(val||"").trim(); if(val.length>2 && txt.includes(val)) bad.push(lbl); });
+  return bad;
+}
+
+let promptModal=null;
+function viewPrompt(){
+  const txt=buildPrompt(), leaks=promptLeaks(txt);
+  const ov=document.createElement("div");
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px";
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:760px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px">
+      <b style="color:var(--navy)">Prompt to be copied</b>
+      <span style="font-size:12px;color:${leaks.length?'#B03A2E':'var(--teal)'}">${leaks.length?"⚠ contains: "+leaks.join(", "):"✔ no name, IC, DOB or contact details present"}</span>
+      <button class="btn ghost" style="margin-left:auto;padding:5px 12px" onclick="this.closest('div').parentElement.remove()">Close</button>
+    </div>
+    <textarea readonly style="flex:1;border:0;padding:16px;font-family:monospace;font-size:12px;line-height:1.5;white-space:pre-wrap">${txt.replace(/</g,"&lt;")}</textarea></div>`;
+  document.body.appendChild(ov); promptModal=ov;
+}
+function copyPrompt(){
+  const txt=buildPrompt();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(
+      ()=>toast("Prompt copied ✓ — paste it into your preferred AI assistant, then paste the reply below.",false),
+      ()=>{ viewPrompt(); toast("Couldn't copy automatically — select all in the box and copy manually."); });
+  } else { viewPrompt(); toast("Select all in the box and copy manually."); }
+}
+
+/* ---- parse the pasted reply into sections ---- */
+function parseReply(txt){
+  const parts={}; let cur=null, buf=[];
+  const push=()=>{ if(cur) parts[cur]=buf.join("\n").trim(); };
+  txt.split(/\r?\n/).forEach(ln=>{
+    const h=ln.match(/^\s*#{1,3}\s*(.+?)\s*:?\s*$/);
+    if(h && h[1].length<70){ push(); cur=h[1]; buf=[]; } else if(cur!==null) buf.push(ln);
+  });
+  push(); return parts;
+}
+const normH=s=>s.toLowerCase().replace(/[^a-z]/g,"");
+function insertReply(){
+  const raw=$("pastebox").value.trim();
+  if(!raw){ toast("Paste the AI assistant's reply first."); return; }
+  const parts=parseReply(raw);
+  if(!Object.keys(parts).length){ toast("No section headings found. The reply should contain lines like “## Summary”."); return; }
+  const prefN=$("prefname").value||$("fullname").value.split(" ")[0]||"";
+  const schoolN=$("schoolname").value||"";
+  let matched=0; const missSec=[]; let residual=false;
+  RSECTIONS.forEach(t=>{
+    const key=Object.keys(parts).find(k=>normH(k)===normH(t)||normH(k).includes(normH(t))||normH(t).includes(normH(k)));
+    if(key && parts[key]){
+      let v=parts[key];
+      if(prefN) v=v.replace(/\[Child\]/g,prefN); else if(/\[Child\]/.test(v)) residual=true;
+      if(schoolN) v=v.replace(/\[School\]/g,schoolN);
+      S.secs[t]=v; matched++;
+    } else missSec.push(t);
+  });
+  const miKey=Object.keys(parts).find(k=>normH(k).includes("missinginformation"));
+  buildSections();
+  const dx=dxFindings();
+  const bits=[`<div class="${matched===RSECTIONS.length?'ok':'warn'}" style="margin-bottom:8px">Inserted ${matched} of ${RSECTIONS.length} sections${prefN?"; [Child] replaced with “"+prefN+"”":""}.</div>`];
+  if(missSec.length) bits.push(`<div class="warn" style="margin-bottom:8px">No text found for: ${missSec.join(", ")}. Regenerate or write these manually.</div>`);
+  if(residual) bits.push(`<div class="warn" style="margin-bottom:8px">Some “[Child]” placeholders remain because no preferred name is set on Screen 1.</div>`);
+  if(miKey && parts[miKey]) bits.push(`<div class="qcard" style="margin-bottom:8px"><span class="src">AI flagged missing information</span><p style="margin:6px 0;white-space:pre-wrap">${parts[miKey]}</p><span class="hint">This note is NOT added to the report — review and fill the gaps if needed.</span></div>`);
+  if(dx.length) bits.push(`<div class="flag" style="margin-bottom:8px"><b>Diagnosis-language check:</b> ${dx.length} section(s) contain a possible diagnostic statement (highlighted below in red). Reword before export.</div>`);
+  else bits.push(`<div class="ok" style="margin-bottom:8px">Diagnosis-language check passed ✓</div>`);
+  $("genstatus").innerHTML=bits.join("");
+  markDirty();
+}
+
+/* ---- rule-based draft: full report with NO AI (fallback) ---- */
+function ruleDraft(){
   const n=childName(), [p,pp]=pronoun();
   S.secs={
    "Occupational Profile of a Child":`${n} is a ${$("age").value||"—"}-old ${S.seg.sex==="Female"?"girl":"boy"} who lives with ${pp} family. Based on caregiver report, early milestones were generally achieved within the expected range. ${n} is developing independence in self-care, with support still required for dressing and grooming. The family's main priority for therapy is ${sel("hopes")[0]||"greater independence in daily routines"}.`,
@@ -816,15 +1012,52 @@ function loadSample(){
    "Recommendation":`• Occupational therapy intervention focusing on the areas identified above\n• Collaboration with caregivers${$("school").value&&$("school").value!=="Not yet schooling"?" and school":""} for consistent strategies\n• Use of ${sel("interests")[0]?.toLowerCase()||"the child's interests"} as motivating activities within intervention${sel("redflags").length?"\n• Discussion with the family regarding the concern(s) noted during screening, with referral to the appropriate medical practitioner or support service":""}`
   };
   buildSections();
+  $("genstatus").innerHTML=`<div class="ok">Rule-based draft generated with no AI — review and edit every section, then continue.</div>`;
+  markDirty();
 }
+function loadSample(){ ruleDraft(); }   // legacy alias
+
+/* ---- diagnosis-language scan (docs/08 §6) ---- */
+const DX_COND="(autism|autistic|asd\\b|adhd|attention[- ]deficit|sensory processing disorder|\\bspd\\b|dyspraxia|developmental coordination disorder|\\bdcd\\b|global developmental delay|\\bgdd\\b|intellectual disability|learning disorder|learning disability)";
+const DX_PATTERNS=[
+ {re:new RegExp("consistent with (a )?(diagnosis of )?"+DX_COND,"i"), label:"“consistent with <condition>”"},
+ {re:new RegExp("(indicative|suggestive) of (a )?(diagnosis of )?"+DX_COND,"i"), label:"“indicative/suggestive of <condition>”"},
+ {re:/\bmeets (the )?(diagnostic )?criteria\b/i, label:"“meets criteria”"},
+ {re:/\bdiagnostic of\b/i, label:"“diagnostic of”"},
+ {re:new RegExp("confirms? (a )?(diagnosis|"+DX_COND+")","i"), label:"“confirms a diagnosis”"}
+];
+function dxFindings(){
+  const out=[];
+  Object.entries(S.secs).forEach(([sec,txt])=>{ if(!txt) return;
+    DX_PATTERNS.forEach(pat=>{ const m=txt.match(pat.re); if(m) out.push({sec,label:pat.label,snippet:m[0]}); }); });
+  return out;
+}
+
 function buildSections(){
   $("sections").innerHTML="";
   RSECTIONS.forEach(t=>{
-    const c=document.createElement("div"); c.className="secard";
-    c.innerHTML=`<div class="hd"><b>${t}</b><span class="mini"><label><input type="checkbox" class="rv"> Reviewed</label><button class="btn ghost" style="padding:4px 10px;font-size:12px" onclick="toast('Mockup: copies a section-only prompt to regenerate this section in your preferred AI assistant.', false)">↻ Regenerate</button></span></div><textarea>${S.secs[t]||""}</textarea>`;
-    c.querySelector("textarea").addEventListener("input",e=>S.secs[t]=e.target.value);
+    const c=document.createElement("div"); c.className="secard"; c.dataset.sec=t;
+    c.innerHTML=`<div class="hd"><b>${t}</b><span class="mini"><label><input type="checkbox" class="rv"> Reviewed</label></span></div><textarea>${(S.secs[t]||"").replace(/</g,"&lt;")}</textarea>`;
+    c.querySelector("textarea").addEventListener("input",e=>{ S.secs[t]=e.target.value; refreshDxFlags(); });
     $("sections").appendChild(c);
   });
+  refreshDxFlags();
+}
+function refreshDxFlags(){
+  const f=dxFindings();
+  document.querySelectorAll("#sections .secard").forEach(card=>{
+    const hit=f.filter(x=>x.sec===card.dataset.sec);
+    let warn=card.querySelector(".dxwarn");
+    if(hit.length){
+      card.style.border="1.5px solid var(--coral)";
+      if(!warn){ warn=document.createElement("div"); warn.className="dxwarn";
+        warn.style.cssText="background:#FDECEF;color:#B03A2E;font-size:12px;padding:8px 14px;line-height:1.4";
+        card.insertBefore(warn, card.querySelector("textarea")); }
+      warn.innerHTML="⚠ Possible diagnostic statement ("+hit.map(h=>h.label).join(", ")+"). A screening report must not state or imply a diagnosis — reword before exporting.";
+    } else { card.style.border=""; if(warn) warn.remove(); }
+  });
+  updateExport();
+  return f;
 }
 buildSections();
 
@@ -879,9 +1112,10 @@ function buildReport(){
 
 /* consent + sign-off both gate export */
 function updateExport(){
-  const consent=$("consentchk").checked;
-  $("consentwarn").style.display = consent? "none":"block";
-  $("exportbtn").disabled = !($("signoff").checked && consent);
+  const consent=$("consentchk").checked, dx=dxFindings().length>0;
+  if($("consentwarn")) $("consentwarn").style.display = consent? "none":"block";
+  if($("dxwarn10")) $("dxwarn10").style.display = dx? "block":"none";
+  if($("exportbtn")) $("exportbtn").disabled = !($("signoff").checked && consent && !dx);
 }
 /* ================= NAVIGATION ================= */
 function go(n){

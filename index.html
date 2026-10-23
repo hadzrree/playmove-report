@@ -127,6 +127,10 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   .rpt table, .rpt tr{ break-inside:avoid; page-break-inside:avoid; }
   .rpt p, .rpt li{ orphans:2; widows:2; }
   .cpybar{ break-after:avoid; }
+  /* Export gate (22 Oct 2026): printing from the browser menu or Ctrl+P is
+     blocked too. Only a report cleared by updateExport() can be printed. */
+  body:not(.export-ok) .reportwrap{ display:none !important; }
+  body:not(.export-ok) #s10::before{ content:"This report cannot be printed yet: it is incomplete or has not been signed off. Return to Screen 10 in PlayMove for details."; display:block; padding:20mm 16mm; font:600 14pt 'Segoe UI',system-ui,sans-serif; color:#B03A2E; }
 }
 @media (max-width:640px){
   .grid{grid-template-columns:1fr;}
@@ -160,7 +164,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
   <p class="sub">Under 60 seconds. Only name, DOB, sex and informant are required.</p>
   <div class="card"><h3>A — Child details</h3>
     <div class="grid">
-      <div class="field"><label>IC / MyKid number <span class="hint">(optional — auto-fills DOB &amp; sex)</span></label><input id="ic" placeholder="e.g. 210322-01-1234" maxlength="14"><span class="fielderr" id="icerr">IC looks incomplete — auto-fill skipped. The field is optional.</span></div>
+      <div class="field"><label>IC / MyKid number <span class="hint">(optional — auto-fills DOB &amp; sex)</span></label><input id="ic" placeholder="YYMMDD-PB-####" maxlength="14"><span class="fielderr" id="icerr">IC looks incomplete — auto-fill skipped. The field is optional.</span></div>
       <div class="field"><label>Full name *</label><input id="fullname" placeholder="Child's full name"></div>
       <div class="field"><label>Preferred name</label><input id="prefname" placeholder="Auto-suggested from first name"></div>
       <div class="field"><label>Date of birth *</label><input type="date" id="dob"></div>
@@ -176,8 +180,8 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
     <div class="grid">
       <div class="field"><label>Date of screening</label><input type="date" id="doa"></div>
       <div class="field"><label>Therapist name *</label><input id="tname" placeholder="Full name as registered" autocomplete="name"></div>
-      <div class="field"><label>MAHPC registration number *</label><input id="tmahpc" placeholder="e.g. MAHPC(OT)00712"></div>
-      <div class="field"><label>Contact number *</label><input id="tphone" inputmode="tel" placeholder="+60 19-705 8258"><span class="fielderr" id="phoneerr">Please enter a valid phone number (digits, spaces, - and + only, at least 9 digits).</span></div>
+      <div class="field"><label>MAHPC registration number *</label><input id="tmahpc" placeholder="e.g. MAHPC(OT)#####"></div>
+      <div class="field"><label>Contact number *</label><input id="tphone" inputmode="tel" placeholder="e.g. 01X-XXX XXXX"><span class="fielderr" id="phoneerr">Please enter a valid phone number (digits, spaces, - and + only, at least 9 digits).</span></div>
     </div>
     <p class="hint" style="margin-top:8px">Your details are remembered on this device only, so you enter them once. Child data is never stored.</p>
   </div>
@@ -282,7 +286,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <!-- ========== SCREEN 8 ========== -->
 <section class="screen" id="s8">
   <h2 class="title">8 · AI Review</h2>
-  <p class="sub">A quality gate before writing. Advisory only — nothing here blocks you.</p>
+  <p class="sub">A quality gate before writing. You can keep going from here, but anything still missing will block export on Screen 10.</p>
   <div class="card"><h3>Completeness</h3><div id="completeness"></div></div>
   <div class="card"><h3>Consistency flags</h3><div id="flags"></div></div>
   <div class="card"><h3>Follow-up questions (max 2)</h3><div id="fups"></div></div>
@@ -296,7 +300,7 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
     <div class="prompthdr">
       <button class="btn primary" onclick="copyPrompt()">📋 Copy prompt</button>
       <button class="btn ghost" onclick="viewPrompt()">👁 View prompt</button>
-      <button class="btn accent" onclick="ruleDraft()">✨ Generate draft (no AI needed)</button>
+      <button class="btn accent" onclick="ruleDraft()" title="Restates only what you recorded on Screens 1–7. Summary and Recommendation are left for you.">📝 Facts-only draft (no AI)</button>
     </div>
     <p class="hint" style="margin-top:8px">Paste the AI assistant's reply below and press Insert. “[Child]” becomes the preferred name locally, sections are filled, and the reply is checked for diagnostic language. No name, IC or DOB is ever in the prompt.</p>
     <textarea id="pastebox" style="width:100%; margin-top:10px; border:1.5px dashed var(--line); border-radius:9px; padding:10px; min-height:64px; font-family:inherit;" placeholder="Paste the AI assistant's reply here…"></textarea>
@@ -310,15 +314,16 @@ footer.note{position:fixed; bottom:0; left:0; right:0; background:#fff; border-t
 <!-- ========== SCREEN 10 ========== -->
 <section class="screen" id="s10">
   <h2 class="title">10 · Preview PDF</h2>
-  <p class="sub">Exact template preview. Tick the sign-off to enable export.</p>
+  <p class="sub">Exact template preview. Export is enabled only when the report is complete, consent is recorded and you tick the sign-off.</p>
   <div id="consentwarn" class="flag" style="display:none">Parent/guardian consent has not been recorded on Screen 1 — export is disabled until it is. <button class="btn ghost" onclick="go(1)">Go to consent</button></div>
+  <div id="incompletewarn" class="flag" style="display:none"></div>
   <div id="dxwarn10" class="flag" style="display:none"><b>Diagnostic language detected.</b> A section contains a possible diagnosis. Export is blocked — return to Generate Report and reword it. <button class="btn ghost" onclick="go(9)">Go to Screen 9</button></div>
   <div class="signoff">
     <input type="checkbox" id="signoff" style="width:18px;height:18px;margin-top:2px" onchange="updateExport()">
     <label for="signoff" style="font-size:13.5px">I have reviewed this report and it reflects my clinical findings.</label>
   </div>
   <div style="display:flex; gap:10px; margin-bottom:6px">
-    <button class="btn primary" id="exportbtn" disabled onclick="window.print()">⬇ Export PDF (print)</button>
+    <button class="btn primary" id="exportbtn" disabled onclick="updateExport(); if(document.body.classList.contains('export-ok')) window.print()">⬇ Export PDF (print)</button>
     <button class="btn ghost" onclick="buildReport()">↻ Refresh preview</button>
     <button class="btn ghost" onclick="startNew()">＋ Start new report</button>
   </div>
@@ -746,23 +751,9 @@ function spmRanges(){ const red=[],amber=[],green=[];
     const r=interp(S.spm[sc]); if(!r||r.err) return;
     (+S.spm[sc]>=70?red:+S.spm[sc]>=60?amber:green).push(sc); });
   return {red,amber,green}; }
-function buildInterpretation(){
-  const {red,amber,green}=spmRanges();
-  if(!red.length&&!amber.length&&!green.length) return "";
-  const infRaw=($("informant").value||"caregiver").toLowerCase();
-  const inf=infRaw.startsWith("both")?infRaw:"the "+infRaw;
-  const low=a=>a.map(s=>s.toLowerCase());
-  let t="";
-  if(red.length) t+=`The SPM (Home Form), completed by ${inf}, indicates significant sensory processing difficulties, particularly in ${low(red).join(", ")}. `;
-  else if(amber.length) t+=`The SPM (Home Form), completed by ${inf}, indicates mild sensory processing differences, primarily in ${low(amber).join(", ")}. `;
-  else t+=`The SPM (Home Form), completed by ${inf}, indicates sensory processing within the typical range across all administered areas. `;
-  if(red.length&&amber.length) t+=`Additional differences were noted in ${low(amber).join(", ")}. `;
-  [...red,...amber].forEach(sc=>{ const ev=scaleEvidence(sc);
-    if(ev.length) t+=`The ${sc.toLowerCase()} finding is reflected in ${ev.join(" and ")}. `; });
-  if(green.length&&(red.length||amber.length)) t+=`Scores in the remaining areas (${low(green).join(", ")}) fell within the typical range. `;
-  if(red.length||amber.length) t+=`These sensory processing differences may be contributing to the functional challenges reported by the family. Findings are screening-level and warrant further assessment.`;
-  return t.trim();
-}
+/* buildInterpretation() was removed on 22 Oct 2026: it wrote clinical conclusions
+   ("may be contributing to the functional challenges reported by the family")
+   that nobody recorded. The Interpretation section now starts from spmFacts(). */
 function mismatchCard(sc,msg,goScreen){
   return `<div class="flag"><b>${sc} — report–findings mismatch:</b> ${msg}<br><br><button class="btn ghost" onclick="go(${goScreen})">Go to screen</button> <button class="btn ghost" onclick="this.closest('.flag').outerHTML='<div class=ok>✔ Acknowledged — both findings will be reported neutrally.</div>'">Acknowledge &amp; keep both</button></div>`;
 }
@@ -1013,21 +1004,81 @@ function insertReply(){
   markDirty();
 }
 
-/* ---- rule-based draft: full report with NO AI (fallback) ---- */
+/* ---- facts-only draft: NO AI, and nothing that was not recorded ----
+   Decision 22 Oct 2026 (Hadzrree): the old rule-based draft filled blanks
+   with invented text ("early milestones were generally achieved within the
+   expected range", "support still required for dressing and grooming",
+   default concerns and recommendations). It is replaced by a template that
+   only restates what the therapist recorded on Screens 1–7. A section with
+   nothing recorded is left EMPTY, and Summary and Recommendation are always
+   left for the therapist to write — export stays blocked until they are. */
+function factList(a){ a=a.filter(Boolean); return a.length<=1?(a[0]||""):a.slice(0,-1).join(", ")+" and "+a[a.length-1]; }
+function spmFacts(){
+  const scales=(S.ver==="SPM"?SPM_SCALES:SPM2_SCALES);
+  const rows=scales.map(sc=>{ const r=interp(S.spm[sc]); if(!r||r.err) return null;
+    return `${sc}: T = ${S.spm[sc]} (${S.ver==="SPM"?r.lbl:r.lbl2})`; }).filter(Boolean);
+  if(!rows.length) return "";
+  const form=`${S.ver==="SPM"?"SPM":"SPM-2"} Home Form`;
+  const head=$("informant").value?`The ${form} was completed by the ${$("informant").value.toLowerCase()}.`:`${form}.`;
+  return `${head} T-scores recorded: ${rows.join("; ")}.`;
+}
 function ruleDraft(){
-  const n=childName(), [p,pp]=pronoun();
-  S.secs={
-   "Occupational Profile of a Child":`${n} is a ${$("age").value||"—"}-old ${S.seg.sex==="Female"?"girl":"boy"} who lives with ${pp} family. Based on caregiver report, early milestones were generally achieved within the expected range. ${n} is developing independence in self-care, with support still required for dressing and grooming. The family's main priority for therapy is ${sel("hopes")[0]||"greater independence in daily routines"}.`,
-   "Parental Concern":`Parents expressed concerns primarily regarding ${sel("concerns").slice(0,2).join(" and ").toLowerCase()||"attention and daily routines"}. ${$("concerntext").value?`In their words: “${$("concerntext").value}.”`:""}`,
-   "General Observation":`During the screening session, ${n} ${S.seg["gen:Separation from caregiver"]==="Separated easily"?"separated easily from the caregiver":"required time to separate from the caregiver"} and engaged with the therapy environment. Attention to activity was ${(S.seg["gen:Attention to activity"]||"variable").toLowerCase()}, and ${p} was able to follow ${(S.seg["gen:Following instructions"]||"simple").toLowerCase()} instructions.`,
-   "Sensory Integration and Postural Praxis Observations (ASI Framework)":`During structured play, areas of significant concern included: ${Object.entries(S.seg).filter(([k,v])=>k.startsWith("asi:")&&v==="Significant concern").map(([k])=>k.slice(4).toLowerCase()).slice(0,3).join("; ")||"none — responses were generally age-appropriate"}. Items rated as mild concern will be monitored; “Not assessed” items are excluded from this report.`,
-   "Interpretation":buildInterpretation()||"The SPM was not administered during this screening.",
-   "Child's Strengths":sel("strengths").map(s=>"• "+s).join("\n")||"• (select strengths on Screen 7)",
-   "Summary":`Based on caregiver report, SPM findings, and screening-level clinical observations, ${n} presents with a profile of strengths in ${sel("strengths")[0]?.toLowerCase()||"engagement"} alongside challenges affecting daily participation. Findings are preliminary and screening-level.`,
-   "Recommendation":`• Occupational therapy intervention focusing on the areas identified above\n• Collaboration with caregivers${$("school").value&&$("school").value!=="Not yet schooling"?" and school":""} for consistent strategies\n• Use of ${sel("interests")[0]?.toLowerCase()||"the child's interests"} as motivating activities within intervention${sel("redflags").length?"\n• Discussion with the family regarding the concern(s) noted during screening, with referral to the appropriate medical practitioner or support service":""}`
-  };
+  const n=childName(), [p,pp]=pronoun(), sex=S.seg.sex;
+  const kid = sex==="Female"?"girl":sex==="Male"?"boy":"";
+  const out={};
+  // Occupational Profile — only recorded facts
+  const op=[];
+  if($("age").value && kid) op.push(`${n} is a ${kid} aged ${$("age").value}.`);
+  else if($("age").value) op.push(`${n} is aged ${$("age").value}.`);
+  if($("informant").value) op.push(`Information was provided by the ${$("informant").value.toLowerCase()}.`);
+  if(sel("langs").length) op.push(`Language(s) spoken at home: ${factList(sel("langs"))}.`);
+  if($("refsrc").value) op.push(`Referral source: ${$("refsrc").value.toLowerCase()}.`);
+  if(S.seg.dx==="Diagnosed"){
+    const dx=[[...(S.chips["dxchips"]||[])].join(", "), $("dxother").value].filter(Boolean).join(" — ");
+    if(dx) op.push(`According to the referral information, ${n} has a diagnosis of ${dx}.`);
+  } else if(S.seg.dx==="Under assessment") op.push(`${n} is reported to be under diagnostic assessment.`);
+  else if(S.seg.dx==="No diagnosis") op.push(`No diagnosis was reported.`);
+  if($("school").value) op.push($("school").value==="Not yet schooling" ? `${n} is not yet attending school.` : `Schooling: ${$("school").value}.`);
+  const part=PART.map(x=>{const v=S.seg["part:"+x]; return v?`${x.toLowerCase()} — ${v.toLowerCase()}`:null;}).filter(Boolean);
+  if(part.length) op.push(`Caregiver-reported participation in daily occupations: ${part.join("; ")}.`);
+  if(sel("hopes").length) op.push(`The family's hopes for therapy: ${factList(sel("hopes").map(x=>x.toLowerCase()))}.`);
+  out["Occupational Profile of a Child"]=op.join(" ");
+  // Parental Concern
+  const pc=[];
+  if(sel("concerns").length) pc.push(`The family reported concerns regarding ${factList(sel("concerns").map(x=>x.toLowerCase()))}.`);
+  if($("concerntext").value) pc.push(`In their words: “${$("concerntext").value.trim().replace(/[.”"]+$/,"")}.”`);
+  if($("condur").value) pc.push(`Duration of concern: ${$("condur").value}.`);
+  out["Parental Concern"]=pc.join(" ");
+  // General Observation — exactly as rated
+  const go=GENOBS.map(([l])=>{const v=S.seg["gen:"+l]; return v?`${l.toLowerCase()}: ${v.toLowerCase()}`:null;}).filter(Boolean);
+  const gob=[];
+  if(go.length) gob.push(`Observed during the screening session — ${go.join("; ")}.`);
+  if(sel("commchips").length) gob.push(`Communication observed: ${factList(sel("commchips").map(x=>x.toLowerCase()))}.`);
+  if(sel("playqual").length) gob.push(`Play: ${factList(sel("playqual").map(x=>x.toLowerCase()))}.`);
+  if($("gennote").value) gob.push(`Session note: ${$("gennote").value.trim().replace(/\.$/,"")}.`);
+  out["General Observation"]=gob.join(" ");
+  // ASI — rated items only; "Not assessed" left out
+  const asi=[];
+  const by=v=>ASI.flatMap(g=>g.items.filter(it=>S.seg["asi:"+it]===v).map(it=>`${it.charAt(0).toLowerCase()+it.slice(1)} (${g.t.toLowerCase()})`));
+  const sig=by("Significant concern"), mild=by("Mild concern");
+  if(sig.length) asi.push(`Rated as a significant concern: ${sig.join("; ")}.`);
+  if(mild.length) asi.push(`Rated as a mild concern: ${mild.join("; ")}.`);
+  const typ=ASI.filter(g=>asiAllTypical(g.t)).map(g=>g.t.toLowerCase());
+  if(typ.length) asi.push(`All rated items were typical in: ${factList(typ)}.`);
+  out["Sensory Integration and Postural Praxis Observations (ASI Framework)"]=asi.join(" ");
+  // Interpretation — the recorded scores only; the clinical interpretation is the therapist's
+  out["Interpretation"]=spmFacts();
+  // Strengths
+  out["Child's Strengths"]=sel("strengths").map(x=>"• "+x).join("\n")+($("strnote").value?`\n• In session: ${$("strnote").value.trim()}`:"");
+  // Clinical judgement — never drafted by the app
+  out["Summary"]="";
+  out["Recommendation"]="";
+  S.secs=out;
   buildSections();
-  $("genstatus").innerHTML=`<div class="ok">Rule-based draft generated with no AI — review and edit every section, then continue.</div>`;
+  const empty=RSECTIONS.filter(t=>!(S.secs[t]||"").trim());
+  $("genstatus").innerHTML=`<div class="ok">Facts-only draft — every sentence restates something you recorded on Screens 1–7. Nothing has been added.</div>`+
+    (empty.length?`<div class="warn" style="margin-top:8px">Left empty for you to write: <b>${empty.join(", ")}</b>. The report cannot be exported until every section has text.</div>`:"")+
+    (sel("redflags").length?`<div class="flag" style="margin-top:8px">Red flags were recorded on Screen 3 — address referral in your Recommendation.</div>`:"");
   markDirty();
 }
 function loadSample(){ ruleDraft(); }   // legacy alias
@@ -1125,12 +1176,36 @@ function buildReport(){
     </div>`;
 }
 
-/* consent + sign-off both gate export */
+/* Export gate: consent + sign-off + no diagnostic wording + complete data.
+   22 Oct 2026 (Hadzrree): no export for a report built from empty or
+   incomplete data. Every item below must be present; the list is shown on
+   Screen 10. Printing from the browser menu is blocked the same way (CSS). */
+const PLACEHOLDER_RE=/\[Child\]|\[School\]|\(select [^)]*\)|\[Not recorded/i;
+function exportGaps(){
+  const g=[];
+  s1Missing().forEach(([,label])=>g.push("Screen 1 · "+label));
+  if(!sel("concerns").length) g.push("Screen 2 · family concerns");
+  if(!Object.keys(S.seg).some(k=>k.startsWith("iv:"))) g.push("Screen 3 · parent interview (nothing answered)");
+  if(!Object.keys(S.seg).some(k=>k.startsWith("gen:"))) g.push("Screen 4 · general observation (nothing rated)");
+  if(!Object.entries(S.seg).some(([k,v])=>k.startsWith("asi:") && v!=="Not assessed")) g.push("Screen 5 · ASI observation (nothing rated)");
+  if(!Object.values(S.spm).some(v=>{const r=interp(v); return r&&!r.err;})) g.push("Screen 6 · SPM scores (the report states it is based on the SPM)");
+  if(spmInvalid()) g.push("Screen 6 · an SPM score is outside 40–80");
+  if(!sel("strengths").length) g.push("Screen 7 · at least one strength");
+  RSECTIONS.forEach(t=>{ const v=(S.secs[t]||"").trim();
+    if(!v || v==="—") g.push("Screen 9 · "+t+" (empty)");
+    else if(PLACEHOLDER_RE.test(v)) g.push("Screen 9 · "+t+" (contains a placeholder)"); });
+  return g;
+}
 function updateExport(){
-  const consent=$("consentchk").checked, dx=dxFindings().length>0;
+  const consent=$("consentchk").checked, dx=dxFindings().length>0, gaps=exportGaps();
   if($("consentwarn")) $("consentwarn").style.display = consent? "none":"block";
   if($("dxwarn10")) $("dxwarn10").style.display = dx? "block":"none";
-  if($("exportbtn")) $("exportbtn").disabled = !($("signoff").checked && consent && !dx);
+  const iw=$("incompletewarn");
+  if(iw){ iw.style.display = gaps.length? "block":"none";
+    if(gaps.length) iw.innerHTML="<b>Incomplete — export is disabled.</b> A report cannot be exported from empty or incomplete data. Still missing:<br>• "+gaps.join("<br>• "); }
+  const ok = $("signoff").checked && consent && !dx && gaps.length===0;
+  if($("exportbtn")) $("exportbtn").disabled = !ok;
+  document.body.classList.toggle("export-ok", ok);
 }
 /* ================= M8 — help, new report, feedback ================= */
 function showHelp(){
@@ -1151,7 +1226,7 @@ function showHelp(){
         <li><b>SPM</b> — enter T-scores; colours and labels are automatic.</li>
         <li><b>Strengths</b> — pick at least one.</li>
         <li><b>AI Review</b> — checks completeness, flags contradictions, suggests up to two follow-ups.</li>
-        <li><b>Generate</b> — copy the prompt into any AI assistant and paste the reply back, <i>or</i> use <b>Generate draft (no AI needed)</b>. Every section is yours to edit.</li>
+        <li><b>Generate</b> — copy the prompt into any AI assistant and paste the reply back, <i>or</i> use <b>Facts-only draft (no AI)</b>, which restates only what you recorded and leaves Summary and Recommendation for you. Every section is yours to edit.</li>
         <li><b>Preview &amp; export</b> — tick sign-off (consent must also be recorded) and print to PDF.</li>
       </ol>
       <div style="background:#FDF7E7;border:1px solid var(--yellow);border-radius:10px;padding:12px 14px;margin-bottom:12px">
@@ -1211,8 +1286,8 @@ function go(n){
   $("backbtn").style.visibility=n===1?"hidden":"visible";
   $("nextbtn").style.display=n===10?"none":"inline-block";
   if(n===8) buildReview();
-  if(n===9 && !S.secs["Interpretation"]){        // M5: rule-based draft, no AI needed
-    const auto=buildInterpretation();
+  if(n===9 && !S.secs["Interpretation"]){        // the recorded SPM scores only (22 Oct 2026)
+    const auto=spmFacts();
     if(auto){ S.secs["Interpretation"]=auto; buildSections(); }
   }
   if(n===10){ buildReport(); updateExport(); }

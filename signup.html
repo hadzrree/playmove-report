@@ -37,18 +37,12 @@ footer.note{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1p
 </header>
 <main>
   <section class="card">
-    <h2 class="title">Create account</h2>
-    <p class="sub">Register with email and password. If email confirmation is enabled in Supabase, confirm your email before logging in.</p>
-    <div data-auth-message style="display:none"></div>
-    <form data-signup-form>
-      <div class="field"><label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" required></div>
-      <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="6" required></div>
-      <button class="btn primary" type="submit">Create account →</button>
-    </form>
-    <p class="authlink">Already have an account? <a href="./login.html">Log in</a>.</p>
+    <h2 class="title">Accounts are created by your Administrator</h2>
+    <p class="sub">This app opens with your PLAYMOVE sign-in. Ask your Administrator if you do not have a Staff ID yet.</p>
+    <p class="authlink"><a href="./login.html">Go to sign in</a></p>
   </section>
 </main>
 <footer class="note"><span>Supabase Authentication keeps your session active on this device.</span><span>PlayMove Therapy for Children</span></footer>
-<script type="module" src="./auth.js" data-auth-page="signup"></script>
+
 </body>
 </html>

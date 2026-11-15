@@ -37,18 +37,13 @@ footer.note{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1p
 </header>
 <main>
   <section class="card">
-    <h2 class="title">Log in</h2>
-    <p class="sub">Sign in with your Supabase account to open the report generator.</p>
+    <h2 class="title">Sign in</h2>
+    <p class="sub">This app opens with your PLAYMOVE sign-in. You will not be asked for a password here.</p>
     <div data-auth-message style="display:none"></div>
-    <form data-login-form>
-      <div class="field"><label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" required></div>
-      <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
-      <button class="btn primary" type="submit">Log in →</button>
-    </form>
-    <p class="authlink">Need an account? <a href="./signup.html">Create one</a>.</p>
+    <button class="btn primary" type="button" data-sso-button>Sign in with PLAYMOVE →</button>
   </section>
 </main>
-<footer class="note"><span>Supabase Authentication keeps your session active on this device.</span><span>PlayMove Therapy for Children</span></footer>
+<footer class="note"><span>For PlayMove staff only.</span><span>PlayMove Therapy for Children</span></footer>
 <script type="module" src="./auth.js" data-auth-page="login"></script>
 </body>
 </html>

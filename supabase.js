@@ -1,12 +1,10 @@
 // Supabase client setup for GitHub Pages.
-// 1. Create a Supabase project.
-// 2. Replace the two placeholder values below with your project's URL and anon public key.
-// 3. In Supabase Auth settings, add your GitHub Pages URL to the allowed redirect URLs.
+// Sign-in happens through PLAYMOVE (single sign-on): this page never asks for a password.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-// Set to true for pilot deployments that should open the report generator without login.
-// Set to false to require Supabase email/password authentication.
-export const PILOT_MODE = true;
+// true  = open the report generator without any sign-in (pilot only).
+// false = staff must be signed in through PLAYMOVE.
+export const PILOT_MODE = false;
 
 // Public browser-safe Supabase project URL.
 export const SUPABASE_URL = "https://dozwsicxriyxtjvtntfy.supabase.co";
@@ -14,15 +12,23 @@ export const SUPABASE_URL = "https://dozwsicxriyxtjvtntfy.supabase.co";
 // Public browser-safe anon key. Do not use a service-role key in GitHub Pages.
 export const SUPABASE_ANON_KEY = "sb_publishable_Uvn2DEJyqZZ8Cc79sLkyIQ_8kbCFI4p"
 
-// Shared client used by login, signup, logout, and protected-page checks.
+// Where PLAYMOVE lives. On a developer's own machine it is the local copy.
+const LOCAL = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+export const PLAYMOVE_URL = LOCAL ? "http://localhost:5173" : "https://playmoveos.netlify.app";
+
+// The name this app is registered under in PLAYMOVE single sign-on.
+export const SSO_CLIENT_ID = "screening";
+
+// Shared client used by sign-in, logout, and protected-page checks.
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     // Persist the authenticated user in localStorage so refreshes keep the session.
     persistSession: true,
     // Restore saved sessions automatically when each page loads.
     autoRefreshToken: true,
-    // Detect confirmation and recovery links when Supabase redirects back to the site.
-    detectSessionInUrl: true,
+    // PLAYMOVE returns its own one-time code; Supabase must not try to read the address bar.
+    detectSessionInUrl: false,
+    storageKey: "playmove-report-auth",
   },
 });
 
